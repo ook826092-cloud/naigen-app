@@ -168,7 +168,7 @@ object ManufacturerHelper {
      * 调用方应逐个 try，第一个 resolveActivity 成功的就用。
      */
     fun intentsFor(manufacturer: Manufacturer, page: KeepAlivePage): List<Intent> {
-        return when (manufacturer) {
+        val result: List<Intent> = when (manufacturer) {
             Manufacturer.XIAOMI -> when (page) {
                 KeepAlivePage.AUTOSTART -> listOf(
                     Intent().setComponent(ComponentName(
@@ -442,10 +442,11 @@ object ManufacturerHelper {
                 KeepAlivePage.AUTOSTART -> emptyList<Intent>()
                 KeepAlivePage.BATTERY_OPTIMIZATION -> listOf(batteryOptimizationIntent())
                 KeepAlivePage.BACKGROUND_POPUP -> emptyList<Intent>()
-                KeepAlivePage.APP_DETAIL -> listOf(listOf(appDetailIntent()))
-                KeepAlivePage.NOTIFICATION -> listOf(listOf(notificationIntent()))
+                KeepAlivePage.APP_DETAIL -> listOf(appDetailIntent())
+                KeepAlivePage.NOTIFICATION -> listOf(notificationIntent())
             }
         }
+        return result
     }
 
     /**
