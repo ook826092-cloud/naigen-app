@@ -47,6 +47,10 @@ class NaiApplication : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
 
+        // 0) 日志初始化（最先做）
+        com.naigen.app.util.AppLog.init(this)
+        com.naigen.app.util.AppLog.i("App", "NaiGen 启动")
+
         // 1) SettingsStore（DataStore）
         settingsStore = SettingsStore(this)
 

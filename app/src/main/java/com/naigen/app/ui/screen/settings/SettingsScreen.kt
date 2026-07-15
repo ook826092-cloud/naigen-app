@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.MenuBook
@@ -89,6 +90,12 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel(), nav: NavController) {
                 title = "语言",
                 subtitle = "App 界面语言（7 种）",
                 onClick = { nav.navigate(SubDest.Language.route) }
+            )
+            SettingRow(
+                icon = Icons.Outlined.Description,
+                title = "应用日志",
+                subtitle = "查看运行日志和网络请求",
+                onClick = { nav.navigate(SubDest.Logs.route) }
             )
             SettingRow(
                 icon = Icons.Outlined.Info,

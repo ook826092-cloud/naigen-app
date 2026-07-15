@@ -184,7 +184,8 @@ private fun DropdownRow(
     label: String,
     value: String,
     options: List<Pair<String, String>>,  // key to display
-    onSelected: (String) -> Unit
+    onSelected: (String) -> Unit,
+    helpText: String? = null
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -196,7 +197,16 @@ private fun DropdownRow(
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(label, style = MaterialTheme.typography.bodyLarge)
+            if (helpText != null) {
+                Text(label, style = MaterialTheme.typography.bodyLarge)
+                Spacer(Modifier.width(6.dp))
+                com.naigen.app.ui.components.HelpIcon(
+                    title = label,
+                    description = helpText
+                )
+            } else {
+                Text(label, style = MaterialTheme.typography.bodyLarge)
+            }
             Spacer(Modifier.weight(1f))
             Text(
                 value,
@@ -348,19 +358,23 @@ private fun AdvancedParams(state: GenerateUiState, vm: GenerateViewModel, allSty
             // 数值参数 3 列
             ParamRow3(
                 "Steps", state.steps?.toString() ?: "默认", "1-50",
-                KeyboardType.Number
+                KeyboardType.Number,
+                helpText = com.naigen.app.ui.components.ParamHelp.steps
             ) { v -> vm.updateSteps(v?.toIntOrNull()) }
             ParamRow3(
                 "Scale", state.scale?.toString() ?: "6.0", "1-20",
-                KeyboardType.Decimal
+                KeyboardType.Decimal,
+                helpText = com.naigen.app.ui.components.ParamHelp.scale
             ) { v -> vm.updateScale(v?.toDoubleOrNull()) }
             ParamRow3(
                 "CFG", state.cfg?.toString() ?: "0.0", "0-1",
-                KeyboardType.Decimal
+                KeyboardType.Decimal,
+                helpText = com.naigen.app.ui.components.ParamHelp.cfg
             ) { v -> vm.updateCfg(v?.toDoubleOrNull()) }
             ParamRow3(
                 "Seed", state.seed?.toString() ?: "随机", "留空 = 随机",
-                KeyboardType.Number
+                KeyboardType.Number,
+                helpText = com.naigen.app.ui.components.ParamHelp.seed
             ) { v -> vm.updateSeed(v?.toLongOrNull()) }
             HorizontalDivider(modifier = Modifier.padding(start = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
 
@@ -372,7 +386,8 @@ private fun AdvancedParams(state: GenerateUiState, vm: GenerateViewModel, allSty
                     "k_dpmpp_2m_sde", "k_dpmpp_2m", "k_dpmpp_sde",
                     "k_dpmpp_2s_ancestral", "k_euler_ancestral", "k_euler"
                 ).map { it to it },
-                onSelected = { vm.updateSampler(it) }
+                onSelected = { vm.updateSampler(it) },
+                helpText = com.naigen.app.ui.components.ParamHelp.sampler
             )
             HorizontalDivider(modifier = Modifier.padding(start = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
 
@@ -381,14 +396,16 @@ private fun AdvancedParams(state: GenerateUiState, vm: GenerateViewModel, allSty
                 label = "Noise Schedule",
                 value = state.noiseSchedule ?: "karras (默认)",
                 options = listOf("karras" to "karras (推荐)", "native" to "native"),
-                onSelected = { vm.updateNoiseSchedule(it) }
+                onSelected = { vm.updateNoiseSchedule(it) },
+                helpText = com.naigen.app.ui.components.ParamHelp.noiseSchedule
             )
             HorizontalDivider(modifier = Modifier.padding(start = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
 
             // Uncond Scale
             ParamRow3(
                 "Uncond Scale", state.uncondScale?.toString() ?: "1.0", "负面词权重 1-5",
-                KeyboardType.Decimal
+                KeyboardType.Decimal,
+                helpText = com.naigen.app.ui.components.ParamHelp.uncondScale
             ) { v -> vm.updateUncondScale(v?.toDoubleOrNull()) }
             HorizontalDivider(modifier = Modifier.padding(start = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
 
@@ -399,7 +416,8 @@ private fun AdvancedParams(state: GenerateUiState, vm: GenerateViewModel, allSty
                 "SM (SMEA)",
                 "SDE-DPM 求解器，仅 k_dpmpp_sde 系列有效",
                 state.sm == true,
-                enabled = smEnabled
+                enabled = smEnabled,
+                helpText = com.naigen.app.ui.components.ParamHelp.sm
             ) { vm.updateSm(if (it) true else null) }
             HorizontalDivider(modifier = Modifier.padding(start = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
 
@@ -407,7 +425,8 @@ private fun AdvancedParams(state: GenerateUiState, vm: GenerateViewModel, allSty
                 "SM Dynamic",
                 "动态 SDE-DPM，进一步增加细节",
                 state.smDynamic == true,
-                enabled = smEnabled
+                enabled = smEnabled,
+                helpText = com.naigen.app.ui.components.ParamHelp.smDynamic
             ) { vm.updateSmDynamic(if (it) true else null) }
             HorizontalDivider(modifier = Modifier.padding(start = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
 
@@ -416,7 +435,8 @@ private fun AdvancedParams(state: GenerateUiState, vm: GenerateViewModel, allSty
                 "NAI 4.5 新增，增加多样性（消耗更多点数）",
                 state.varietyPlus,
                 enabled = true,
-                isLast = true
+                isLast = true,
+                helpText = com.naigen.app.ui.components.ParamHelp.varietyPlus
             ) { vm.updateVarietyPlus(it) }
         }
     }
@@ -428,6 +448,7 @@ private fun ParamRow3(
     value: String,
     placeholder: String,
     keyboardType: KeyboardType,
+    helpText: String? = null,
     onChange: (String?) -> Unit
 ) {
     var text by remember(value) { mutableStateOf(value) }
@@ -438,7 +459,16 @@ private fun ParamRow3(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
-            Text(label, style = MaterialTheme.typography.bodyLarge)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(label, style = MaterialTheme.typography.bodyLarge)
+                if (helpText != null) {
+                    Spacer(Modifier.width(6.dp))
+                    com.naigen.app.ui.components.HelpIcon(
+                        title = label,
+                        description = helpText
+                    )
+                }
+            }
             Text(placeholder, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         OutlinedTextField(
@@ -464,6 +494,7 @@ private fun SwitchRow(
     checked: Boolean,
     enabled: Boolean = true,
     isLast: Boolean = false,
+    helpText: String? = null,
     onChange: (Boolean) -> Unit
 ) {
     Column {
@@ -474,7 +505,16 @@ private fun SwitchRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f)) {
-                Text(label, style = MaterialTheme.typography.bodyLarge, color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(label, style = MaterialTheme.typography.bodyLarge, color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (helpText != null) {
+                        Spacer(Modifier.width(6.dp))
+                        com.naigen.app.ui.components.HelpIcon(
+                            title = label,
+                            description = helpText
+                        )
+                    }
+                }
                 Text(description, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Switch(checked = checked, onCheckedChange = onChange, enabled = enabled)

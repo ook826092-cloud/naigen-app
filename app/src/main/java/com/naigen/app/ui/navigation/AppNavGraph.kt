@@ -34,6 +34,7 @@ import com.naigen.app.ui.screen.settings.api.ApiConfigScreen
 import com.naigen.app.ui.screen.settings.docs.DocsScreen
 import com.naigen.app.ui.screen.settings.keepalive.KeepAliveScreen
 import com.naigen.app.ui.screen.settings.language.LanguageScreen
+import com.naigen.app.ui.screen.settings.logs.LogsScreen
 import com.naigen.app.ui.screen.settings.styles.StyleManagerScreen
 
 private data class Tab(val dest: Dest, val label: String, val icon: ImageVector)
@@ -101,6 +102,7 @@ fun AppNavGraph() {
             composable(SubDest.StyleManager.route) { StyleManagerScreen(nav = nav) }
             composable(SubDest.KeepAlive.route) { KeepAliveScreen(nav = nav) }
             composable(SubDest.Language.route) { LanguageScreen(nav = nav) }
+            composable(SubDest.Logs.route) { LogsScreen(nav = nav) }
             composable(SubDest.About.route) { AboutScreen(nav = nav) }
             composable(SubDest.Docs.route) { DocsScreen(nav = nav) }
         }

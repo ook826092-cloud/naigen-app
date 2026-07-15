@@ -18,6 +18,7 @@ sealed class SubDest(val route: String) {
     data object StyleManager : SubDest("settings/styles")
     data object KeepAlive : SubDest("settings/keepalive")
     data object Language : SubDest("settings/language")
+    data object Logs : SubDest("settings/logs")
     data object About : SubDest("settings/about")
     data object Docs : SubDest("settings/docs")
 }

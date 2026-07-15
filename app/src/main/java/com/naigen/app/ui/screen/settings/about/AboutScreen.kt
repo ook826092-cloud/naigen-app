@@ -2,6 +2,7 @@ package com.naigen.app.ui.screen.settings.about
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -27,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.naigen.app.BuildConfig
+import com.naigen.app.R
 import com.naigen.app.ui.components.GroupedList
 import com.naigen.app.ui.components.ListRow
 
@@ -64,27 +66,26 @@ fun AboutScreen(nav: NavController) {
                     .padding(vertical = 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // 用 App 真实 launcher 图标
                 Box(
                     modifier = Modifier
-                        .size(80.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
+                        .size(96.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("N", color = Color.White, fontSize = 36.sp, fontWeight = FontWeight.Bold)
+                    Image(
+                        painter = androidx.compose.ui.res.painterResource(R.drawable.ic_launcher_foreground),
+                        contentDescription = "NaiGen",
+                        modifier = Modifier.size(96.dp)
+                    )
                 }
                 Spacer(Modifier.height(16.dp))
                 Text("NaiGen", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                // 系统识别的版本号（SemVer）
+                // 格式: 构建次数 / 真实版本号（不加 V）
                 Text(
-                    "v${BuildConfig.SEMVER}",
+                    "${BuildConfig.BUILD_NUMBER} / ${BuildConfig.SEMVER}",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                // 构建次数（只在关于页显示，安卓系统看不到）
-                Text(
-                    "构建 #${BuildConfig.BUILD_NUMBER}",
-                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text("Android Nai2API 文生图客户端", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -168,14 +169,14 @@ fun AboutScreen(nav: NavController) {
                     value = "本应用基于该教程实现",
                     isLast = true,
                     onClick = {
-                        ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ook826092-cloud/naigen-app")))
+                        ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ook826092-cloud/naigen-app/blob/main/docs/Nai2API-Tutorial.md")))
                     },
                     trailing = { LinkIcon() }
                 )
             }
 
             Text(
-                "NaiGen v${BuildConfig.SEMVER} · 构建 #${BuildConfig.BUILD_NUMBER}\nMIT License · Copyright © 2026 ook826092-cloud",
+                "NaiGen ${BuildConfig.BUILD_NUMBER} / ${BuildConfig.SEMVER}\nMIT License · Copyright © 2026 ook826092-cloud",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier

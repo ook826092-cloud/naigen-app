@@ -63,20 +63,21 @@ object NaiApiClient {
     suspend fun createJob(baseUrl: String, body: CreateJobRequest): CreateJobResponse =
         withContext(Dispatchers.IO) {
             val payload = json.encodeToString(CreateJobRequest.serializer(), body)
+            com.naigen.app.util.AppLog.network("POST", "${baseUrl.trimEnd('/')}/api/jobs", payload)
             val req = Request.Builder()
                 .url("${baseUrl.trimEnd('/')}/api/jobs")
                 .post(payload.toRequestBody(JSON_MEDIA_TYPE))
                 .build()
             client.newCall(req).execute().use { resp ->
+                val raw = resp.body?.string().orEmpty()
+                com.naigen.app.util.AppLog.network("POST", "/api/jobs", "", resp.code, raw)
                 if (!resp.isSuccessful) {
-                    val raw = resp.body?.string().orEmpty()
                     val parsed = runCatching {
                         json.decodeFromString(CreateJobResponse.serializer(), raw)
                     }.getOrNull()
                     parsed?.copy(error = parsed.error ?: "HTTP ${resp.code}: $raw")
                         ?: CreateJobResponse(error = "HTTP ${resp.code}: $raw")
                 } else {
-                    val raw = resp.body?.string().orEmpty()
                     json.decodeFromString(CreateJobResponse.serializer(), raw)
                 }
             }

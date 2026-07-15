@@ -276,14 +276,19 @@ private fun AddCustomStyleDialog(
                 }
                 Spacer(Modifier.height(8.dp))
                 Text("Sampler", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Box {
+                Box(
+                    modifier = Modifier.fillMaxWidth().clickable { samplerExpanded = true }
+                ) {
                     OutlinedTextField(
                         value = sampler,
                         onValueChange = { },
                         readOnly = true,
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth().clickable { samplerExpanded = true },
-                        trailingIcon = { Icon(Icons.Outlined.ArrowDropDown, contentDescription = null) }
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = false,  // 禁用输入但显示值
+                        trailingIcon = {
+                            Icon(Icons.Outlined.ArrowDropDown, contentDescription = null)
+                        }
                     )
                     DropdownMenu(expanded = samplerExpanded, onDismissRequest = { samplerExpanded = false }) {
                         samplers.forEach { s ->
