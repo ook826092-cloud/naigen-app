@@ -277,8 +277,7 @@ class GenerationService : Service() {
         // Android 12+ 加 LocusId（各厂商岛功能靠此识别）
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
             try {
-                val locusId = androidx.core.app.LocusIdCompat("naigen_generation")
-                builder.setLocusId(locusId)
+                builder.setLocusId(androidx.core.app.LocusIdCompat("naigen_generation"))
             } catch (_: Throwable) {}
         }
 
