@@ -153,8 +153,7 @@ ex: 1girl, solo, silver hair, masterpiece…</string>
     <string name="service_failed_title">Échec de génération</string>
     <string name="channel_generation">Generation progress</string>
     <string name="channel_result">Generation result</string>
-</resources>
-        <string name="about_subtitle_text">安卓生图工具</string>
+<string name="about_subtitle_text">安卓生图工具</string>
         <string name="album_clear_title">清空相册</string>
         <string name="album_close">关闭</string>
         <string name="album_no_image">无图</string>
@@ -203,3 +202,4 @@ ex: 1girl, solo, silver hair, masterpiece…</string>
         <string name="style_pos_prefix_label">正向提示词前缀 (可选)</string>
         <string name="style_search_hint">搜索风格名 / key</string>
         <string name="theme_title">深色模式</string>
+</resources>
