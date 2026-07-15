@@ -55,6 +55,7 @@ fun StyleManagerScreen(vm: StyleManagerViewModel = viewModel(), nav: NavControll
                         Icon(Icons.Outlined.Add, contentDescription = "新增自定义")
                     }
                 },
+                windowInsets = androidx.compose.foundation.layout.WindowInsets.statusBars,
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
                 )

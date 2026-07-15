@@ -146,7 +146,13 @@ class GenerateViewModel(app: Application) : AndroidViewModel(app) {
                 negative = current.negative,
                 styleKey = current.styleKey,
                 sizeKey = current.sizeKey,
-                variants = current.variants
+                variants = current.variants,
+                steps = current.steps,
+                scale = current.scale,
+                cfg = current.cfg,
+                sampler = current.sampler,
+                seed = current.seed,
+                customArtist = current.customArtist
             )
         }
     }

@@ -85,6 +85,7 @@ fun LogsScreen(nav: NavController) {
                     IconButton(onClick = { appFiles = AppLog.getAppFiles(); networkEntries = AppLog.getNetworkEntries() }) { Icon(Icons.Outlined.Refresh, contentDescription = "刷新") }
                     IconButton(onClick = { AppLog.clearAll(); appFiles = AppLog.getAppFiles(); networkEntries = AppLog.getNetworkEntries(); scope.launch { snackbarHostState.showSnackbar("已清空") } }) { Icon(Icons.Outlined.Delete, contentDescription = "清空", tint = MaterialTheme.colorScheme.error) }
                 },
+                windowInsets = androidx.compose.foundation.layout.WindowInsets.statusBars,
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         },
@@ -249,6 +250,7 @@ private fun NetworkDetailPage(
                         if (file != null) shareFile(ctx, file, entry.fileName)
                     }) { Icon(Icons.Outlined.Share, contentDescription = "分享") }
                 },
+                windowInsets = androidx.compose.foundation.layout.WindowInsets.statusBars,
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         }
@@ -333,12 +335,24 @@ private fun LogDetailPage(title: String, content: String, onBack: () -> Unit, on
                 title = { Text(title, style = MaterialTheme.typography.labelMedium, maxLines = 1) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, contentDescription = "返回") } },
                 actions = { IconButton(onClick = onShare) { Icon(Icons.Outlined.Share, contentDescription = "分享") } },
+                windowInsets = androidx.compose.foundation.layout.WindowInsets.statusBars,
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         }
     ) { padding ->
-        LazyColumn(modifier = Modifier.padding(padding).fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant), contentPadding = PaddingValues(16.dp)) {
-            item { Text(content, style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurface) }
+        LazyColumn(
+            modifier = Modifier.padding(padding).fillMaxSize()
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentPadding = PaddingValues(16.dp)
+        ) {
+            item {
+                Text(
+                    content,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
         }
     }
 }

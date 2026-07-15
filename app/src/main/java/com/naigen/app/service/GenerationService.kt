@@ -70,13 +70,20 @@ class GenerationService : Service() {
         val styleKey = intent.getStringExtra(EXTRA_STYLE) ?: "2.5d"
         val sizeKey = intent.getStringExtra(EXTRA_SIZE) ?: "竖图"
         val variants = intent.getIntExtra(EXTRA_VARIANTS, 1)
-        com.naigen.app.util.AppLog.i("GenService", "onStartCommand: variants=" + variants + " styleKey=" + styleKey + " sizeKey=" + sizeKey)        
+        com.naigen.app.util.AppLog.i("GenService", "onStartCommand: variants=" + variants + " styleKey=" + styleKey + " sizeKey=" + sizeKey)
+
         val app = applicationContext as NaiApplication
         val req = GenRequest(
             prompt = prompt,
             negativePrompt = negative,
             styleKey = styleKey,
-            sizeKey = sizeKey
+            sizeKey = sizeKey,
+            steps = intent.getIntExtra("steps", 0).let { if (it > 0) it else null },
+            scale = intent.getDoubleExtra("scale", 0.0).let { if (it > 0) it else null },
+            cfg = intent.getDoubleExtra("cfg", -1.0).let { if (it >= 0) it else null },
+            sampler = intent.getStringExtra("sampler"),
+            seed = intent.getLongExtra("seed", 0).let { if (it > 0) it else null },
+            customArtist = intent.getStringExtra("customArtist") ?: ""
         )
 
         currentJob = scope.launch {
@@ -124,8 +131,21 @@ class GenerationService : Service() {
                     }
                 }
             } catch (e: Exception) {
-                GenerationBus.publishEvent("生成失败: ${e.message}")
-                notifyDone("生成失败", e.message ?: "未知错误")
+                com.naigen.app.util.AppLog.e("GenService", "异常: ${e.message}", e)
+                if (e is kotlinx.coroutines.CancellationException) {
+                    GenerationBus.markFinished()
+                    stopSelf()
+                    return@launch
+                }
+                val existingResults = GenerationBus.results.value
+                if (existingResults.isNotEmpty() && existingResults.any { it.success }) {
+                    val okCount = existingResults.count { it.success }
+                    GenerationBus.publishEvent("部分完成: $okCount/${existingResults.size} 张成功")
+                    notifyDone("部分完成", "$okCount/${existingResults.size} 张成功")
+                } else {
+                    GenerationBus.publishEvent("生成失败: ${e.message}")
+                    notifyDone("生成失败", e.message ?: "未知错误")
+                }
                 GenerationBus.markFinished()
                 stopSelf()
             }
@@ -288,7 +308,13 @@ class GenerationService : Service() {
             negative: String,
             styleKey: String,
             sizeKey: String,
-            variants: Int
+            variants: Int,
+            steps: Int? = null,
+            scale: Double? = null,
+            cfg: Double? = null,
+            sampler: String? = null,
+            seed: Long? = null,
+            customArtist: String = ""
         ) {
             val intent = Intent(ctx, GenerationService::class.java).apply {
                 putExtra(EXTRA_PROMPT, prompt)
@@ -296,6 +322,12 @@ class GenerationService : Service() {
                 putExtra(EXTRA_STYLE, styleKey)
                 putExtra(EXTRA_SIZE, sizeKey)
                 putExtra(EXTRA_VARIANTS, variants)
+                steps?.let { putExtra("steps", it) }
+                scale?.let { putExtra("scale", it) }
+                cfg?.let { putExtra("cfg", it) }
+                sampler?.let { putExtra("sampler", it) }
+                seed?.let { putExtra("seed", it) }
+                if (customArtist.isNotBlank()) putExtra("customArtist", customArtist)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 ctx.startForegroundService(intent)
