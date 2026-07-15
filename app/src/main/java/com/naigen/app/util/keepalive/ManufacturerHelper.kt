@@ -434,14 +434,6 @@ object ManufacturerHelper {
     fun launch(activity: Activity, manufacturer: Manufacturer, page: KeepAlivePage): Boolean {
         val intents = intentsFor(manufacturer, page)
         for (intent in intents) {
-            // 优先用 Shizuku 启动（可启动 exported=false 的 Activity）
-            if (ShizukuHelper.isGranted()) {
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                if (ShizukuHelper.startActivity(activity, intent)) {
-                    return true
-                }
-            }
-            // Shizuku 不可用时，普通 startActivity
             if (!tryResolve(activity, intent)) continue
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             val ok = runCatching { activity.startActivity(intent) }.isSuccess

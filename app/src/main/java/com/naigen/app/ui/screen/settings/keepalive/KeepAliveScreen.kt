@@ -102,21 +102,23 @@ fun KeepAliveScreen(nav: NavController) {
                 ShizukuCard(
                     onAuthorize = {
                         if (ShizukuHelper.isInstalled(ctx)) {
-                            ShizukuHelper.requestPermission()
+                            if (ShizukuHelper.isRunning() && !ShizukuHelper.isGranted()) {
+                                ShizukuHelper.requestPermission()
+                            } else {
+                                // 已运行但未授权，或未运行 → 跳到 Shizuku App
+                                ShizukuHelper.openShizuku(ctx)
+                            }
                             refreshKey++
                         } else {
-                            // 跳转 Shizuku 安装页
-                            ctx.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://shizuku.rikka.app/")))
+                            // 未安装 → 跳到官网
+                            ShizukuHelper.openShizuku(ctx)
                         }
                     },
                     onAddToWhitelist = {
-                        val ok = ShizukuHelper.addToBatteryWhitelist(ctx)
+                        // 引导用户去系统设置手动加白名单
                         scope.launch {
-                            snackbarHostState.showSnackbar(
-                                if (ok) "已通过 Shizuku 加入电池白名单" else "操作失败（Shizuku 未授权？）"
-                            )
+                            snackbarHostState.showSnackbar("请在下方「电池 / 省电策略」中手动加入白名单")
                         }
-                        refreshKey++
                     }
                 )
 
