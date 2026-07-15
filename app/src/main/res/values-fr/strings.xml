@@ -148,7 +148,7 @@ ex: 1girl, solo, silver hair, masterpiece…</string>
     <string name="common_ok">Compris</string>
     <string name="common_confirm">Confirm</string>
     <string name="common_cancel">Annuler</string>
-    <string name="service_title">Génération d'image</string>
+    <string name="service_title">Génération d\'image</string>
     <string name="service_done_title">Génération terminée</string>
     <string name="service_failed_title">Échec de génération</string>
     <string name="channel_generation">Generation progress</string>
