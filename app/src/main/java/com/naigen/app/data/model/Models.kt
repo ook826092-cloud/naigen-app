@@ -1,6 +1,7 @@
 package com.naigen.app.data.model
 
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
 
 /**
  * 风格来源：内置预设 / 社区贡献
@@ -100,16 +101,41 @@ data class GenRequest(
 
 /**
  * 单张图片的生成结果。
+ *
+ * 注意：[bytes] 是 [ByteArray]，Kotlin 默认引用相等，但这里我们想要内容相等
+ * （便于 [GenImage] 在 Set / Map 中按内容比较）。
+ *
+ * 标注 [Stable]（而非 [Immutable]）：因为 [ByteArray] 内容可变，
+ * 不满足 Compose 严格 Immutable 的要求；但作为已生成的图片数据，
+ * 实际使用中不会被修改，[Stable] 足以让 Compose 正确处理重组。
  */
+@Stable
 data class GenImage(
     val bytes: ByteArray,
     val url: String              // 完整 URL，用于分享与内部跟踪
-)
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is GenImage) return false
+        return bytes.contentEquals(other.bytes) && url == other.url
+    }
+
+    override fun hashCode(): Int {
+        var result = bytes.contentHashCode()
+        result = 31 * result + url.hashCode()
+        return result
+    }
+}
 
 /**
  * 一次完整请求的结果（含元信息）。
+ *
+ * 标注 [Stable]（而非 [Immutable]）：
+ *   - [images] 是 [List]<[GenImage]>，而 [GenImage.bytes] 是可变的 [ByteArray]
+ *   - 严格 [Immutable] 会误导 Compose 跳过重组，可能导致 bytes 更新不刷新
+ *   - [Stable] 让 Compose 仍按引用比较，但允许内部 list 的「逻辑相等」更新
  */
-@Immutable
+@Stable
 data class GenResult(
     val success: Boolean,
     val images: List<GenImage> = emptyList(),

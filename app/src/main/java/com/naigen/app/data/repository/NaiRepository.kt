@@ -2,14 +2,17 @@ package com.naigen.app.data.repository
 
 import com.naigen.app.data.api.NaiApiClient
 import com.naigen.app.data.api.dto.CreateJobRequest
+import com.naigen.app.data.api.dto.JobStatusResponse
 import com.naigen.app.data.model.GenImage
 import com.naigen.app.data.model.GenRequest
 import com.naigen.app.data.model.GenResult
+import com.naigen.app.data.model.StyleParams
 import com.naigen.app.data.prefs.SettingsStore
-import com.naigen.app.data.styles.AutoStyleKeywords
-import com.naigen.app.data.styles.CommunityStyles
 import com.naigen.app.data.styles.SizeOptions
 import com.naigen.app.data.styles.StyleRegistry
+import com.naigen.app.util.AppLog
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -19,8 +22,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.Dispatchers
 import kotlin.coroutines.coroutineContext
+import kotlin.math.min
 
 /**
  * 生成进度事件。ViewModel 据此驱动 UI。
@@ -37,11 +40,17 @@ sealed class GenProgress {
 /**
  * API 仓库。承担：
  *   - 从 SettingsStore 读取 token / baseUrl
- *   - 实现 §5.5.11 的 Job 异步流程（创建 → 轮询 → 下载）
- *   - 实现 §5.5.15 的并发变体生成（--variants N）
+ *   - 实现的 Job 异步流程（创建 → 轮询 → 下载）
+ *   - 实现的并发变体生成（--variants N）
  *   - 实现余额查询
  *
- * 不引入 UseCase 中间层，因为业务足够薄。
+ * 关键改进（vs 旧版）：
+ *   - 轮询改用**指数退避**：前 3 次快速（1s），后续指数退避到 5s 上限
+ *     —— 既快感知任务完成，又减少请求量
+ *   - 网络异常重试：[JobStatusResponse.STATUS_NETWORK_ERROR] 时重试 N 次，
+ *     只有 API 显式 `failed` 才真正判任务失败
+ *   - 进度时间上限与 [GenerationService] 共享 [MAX_POLL_TIME_SEC]，避免 60s 进度条上限
+ *     与 180s 超时不一致的视觉问题
  *
  * 关键 bug 防护：风格路由必须走 [StyleRegistry.resolveArtistString]，
  * 不能直接用 defaultStyle 兜底——见教程 §5.5.17。
@@ -63,13 +72,13 @@ class NaiRepository(
         onProgress: (GenProgress) -> Unit = {}
     ): GenResult = coroutineScope {
         val startTime = System.currentTimeMillis()
-        com.naigen.app.util.AppLog.i("NaiRepo", "generate() start: style=${request.styleKey} size=${request.sizeKey} variants=$variantIndex/$totalVariants")
+        AppLog.i("NaiRepo", "generate() start: style=${request.styleKey} size=${request.sizeKey} variants=$variantIndex/$totalVariants")
 
         val token = settings.token.first()
         val baseUrl = settings.baseUrl.first()
 
         if (token.isBlank()) {
-            com.naigen.app.util.AppLog.e("NaiRepo", "FAILED: token is empty")
+            AppLog.e("NaiRepo", "FAILED: token is empty")
             return@coroutineScope GenResult(
                 success = false,
                 styleKey = request.styleKey,
@@ -84,11 +93,11 @@ class NaiRepository(
         val styleKey = request.customArtist.ifBlank { request.styleKey }
         val preset = StyleRegistry.get(styleKey)
         val artistString = StyleRegistry.resolveArtistString(styleKey)
-        com.naigen.app.util.AppLog.i("NaiRepo", "style_route: ${styleKey} -> ${preset?.name ?: "custom_artist"}")
+        AppLog.i("NaiRepo", "style_route: $styleKey -> ${preset?.name ?: "custom_artist"}")
 
         // ── 2) 参数合并 ──
         val size = SizeOptions.get(request.sizeKey)
-        val defaultParams = preset?.params ?: com.naigen.app.data.model.StyleParams()
+        val defaultParams = preset?.params ?: StyleParams()
         val useSteps = request.steps ?: defaultParams.steps
         val useScale = request.scale ?: defaultParams.scale
         val useCfg = request.cfg ?: defaultParams.cfg
@@ -118,7 +127,7 @@ class NaiRepository(
             val createResp = client.createJob(baseUrl, body)
             val jobId = createResp.id
             if (jobId.isNullOrBlank()) {
-                com.naigen.app.util.AppLog.e("NaiRepo", "create_job_failed: ${createResp.error}")
+                AppLog.e("NaiRepo", "create_job_failed: ${createResp.error}")
                 return@coroutineScope GenResult(
                     success = false, styleKey = styleKey, styleName = styleName,
                     sizeKey = request.sizeKey,
@@ -126,21 +135,29 @@ class NaiRepository(
                     errorMessage = createResp.error ?: "创建任务失败，未返回 job id"
                 )
             }
-            com.naigen.app.util.AppLog.i("NaiRepo", "job_created: jobId=$jobId")
+            AppLog.i("NaiRepo", "job_created: jobId=$jobId")
 
+            // ── 4) 轮询（指数退避 + 网络异常重试） ──
             var elapsed = 0
-            while (elapsed * 1000L < MAX_POLL_TIME_MS) {
+            var consecutiveNetworkErrors = 0
+            while (elapsed < MAX_POLL_TIME_SEC) {
                 coroutineContext.ensureActive()
-                delay(POLL_INTERVAL_MS)
-                elapsed += (POLL_INTERVAL_MS / 1000).toInt().coerceAtLeast(1)
+
+                // 指数退避：
+                //   - 前 3 次：1s（快速感知任务开始）
+                //   - 第 4 次起：min(2^(n-1), MAX_POLL_INTERVAL_SEC) 秒（减少请求量）
+                val intervalSec = if (elapsed < 3) 1
+                    else min(pollIntervalSec(elapsed), MAX_POLL_INTERVAL_SEC).toInt()
+                delay(intervalSec * 1000L)
+                elapsed += intervalSec
                 onProgress(GenProgress.Polling(variantIndex, totalVariants, jobId, elapsed))
 
                 val status = client.pollJob(baseUrl, jobId, token)
                 when (status.status) {
-                    "done" -> {
+                    JobStatusResponse.STATUS_DONE -> {
                         val imageUrl = status.imageUrl
                         if (imageUrl.isNullOrBlank()) {
-                            com.naigen.app.util.AppLog.e("NaiRepo", "done_but_no_imageUrl")
+                            AppLog.e("NaiRepo", "done_but_no_imageUrl")
                             return@coroutineScope GenResult(
                                 success = false, styleKey = styleKey, styleName = styleName,
                                 sizeKey = request.sizeKey,
@@ -151,7 +168,7 @@ class NaiRepository(
                         onProgress(GenProgress.Downloading(variantIndex, totalVariants))
                         val bytes = client.downloadImage(baseUrl, imageUrl)
                         if (bytes == null) {
-                            com.naigen.app.util.AppLog.e("NaiRepo", "download_failed")
+                            AppLog.e("NaiRepo", "download_failed")
                             return@coroutineScope GenResult(
                                 success = false, styleKey = styleKey, styleName = styleName,
                                 sizeKey = request.sizeKey,
@@ -161,7 +178,7 @@ class NaiRepository(
                         }
                         val fullUrl = if (imageUrl.startsWith("http")) imageUrl else "${baseUrl.trimEnd('/')}$imageUrl"
                         val genTime = System.currentTimeMillis() - startTime
-                        com.naigen.app.util.AppLog.i("NaiRepo", "success: style=${styleName} size=${bytes.size}B time=${genTime}ms")
+                        AppLog.i("NaiRepo", "success: style=$styleName size=${bytes.size}B time=${genTime}ms")
                         return@coroutineScope GenResult(
                             success = true,
                             images = listOf(GenImage(bytes, fullUrl)),
@@ -170,8 +187,8 @@ class NaiRepository(
                             generationTimeMs = genTime, jobId = jobId
                         )
                     }
-                    "failed" -> {
-                        com.naigen.app.util.AppLog.e("NaiRepo", "job_failed: ${status.error}")
+                    JobStatusResponse.STATUS_FAILED -> {
+                        AppLog.e("NaiRepo", "job_failed: ${status.error}")
                         return@coroutineScope GenResult(
                             success = false, styleKey = styleKey, styleName = styleName,
                             sizeKey = request.sizeKey,
@@ -179,19 +196,39 @@ class NaiRepository(
                             jobId = jobId, errorMessage = status.error ?: "任务失败"
                         )
                     }
+                    JobStatusResponse.STATUS_NETWORK_ERROR -> {
+                        // 网络异常：重试 MAX_NETWORK_RETRIES 次，超过则判失败
+                        consecutiveNetworkErrors++
+                        AppLog.w("NaiRepo", "network_error #${consecutiveNetworkErrors}/${MAX_NETWORK_RETRIES}: ${status.error}")
+                        if (consecutiveNetworkErrors >= MAX_NETWORK_RETRIES) {
+                            AppLog.e("NaiRepo", "network_error_exhausted")
+                            return@coroutineScope GenResult(
+                                success = false, styleKey = styleKey, styleName = styleName,
+                                sizeKey = request.sizeKey,
+                                generationTimeMs = System.currentTimeMillis() - startTime,
+                                jobId = jobId,
+                                errorMessage = "网络异常重试 ${MAX_NETWORK_RETRIES} 次仍失败：${status.error}"
+                            )
+                        }
+                        // 否则继续循环（下次轮询前会再 delay）
+                    }
+                    // queued / running → 继续轮询，重置网络异常计数
+                    else -> {
+                        consecutiveNetworkErrors = 0
+                    }
                 }
             }
-            com.naigen.app.util.AppLog.e("NaiRepo", "poll_timeout (${MAX_POLL_TIME_MS / 1000}s)")
+            AppLog.e("NaiRepo", "poll_timeout (${MAX_POLL_TIME_SEC}s)")
             GenResult(
                 success = false, styleKey = styleKey, styleName = styleName,
                 sizeKey = request.sizeKey,
                 generationTimeMs = System.currentTimeMillis() - startTime,
-                jobId = jobId, errorMessage = "轮询超时（${MAX_POLL_TIME_MS / 1000}秒）"
+                jobId = jobId, errorMessage = "轮询超时（${MAX_POLL_TIME_SEC}秒）"
             )
-        } catch (cancellation: kotlinx.coroutines.CancellationException) {
+        } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (e: Exception) {
-            com.naigen.app.util.AppLog.e("NaiRepo", "exception: ${e.message}", e)
+            AppLog.e("NaiRepo", "exception: ${e.message}", e)
             GenResult(
                 success = false, styleKey = styleKey, styleName = styleName,
                 sizeKey = request.sizeKey,
@@ -199,6 +236,22 @@ class NaiRepository(
                 errorMessage = "请求失败: ${e.message ?: e.javaClass.simpleName}"
             )
         }
+    }
+
+    /**
+     * 指数退避计算：返回应该 delay 的秒数（未应用 [MAX_POLL_INTERVAL_SEC] 上限）。
+     *
+     * 公式：2^(n-1)，n 是已轮询次数。
+     *   n=4 → 8s, n=5 → 16s, n=6 → 32s
+     * 实际应用 [MAX_POLL_INTERVAL_SEC]=5 上限后会变成 5s。
+     */
+    private fun pollIntervalSec(elapsedSec: Int): Long {
+        // elapsedSec 即视为已轮询次数近似值，n ≈ elapsedSec/2 + 1
+        val n = (elapsedSec / 2).coerceAtLeast(1)
+        // 2^(n-1)，用 Long 防溢出
+        var result = 1L
+        repeat(n - 1) { result *= 2 }
+        return result
     }
 
     /**
@@ -243,14 +296,25 @@ class NaiRepository(
      */
     suspend fun autoDetectStyle(prompt: String): String? {
         val includeNsfw = settings.nsfwEnabled.first()
-        return AutoStyleKeywords.detect(prompt, includeNsfw)
+        return com.naigen.app.data.styles.AutoStyleKeywords.detect(prompt, includeNsfw)
     }
 
     companion object {
-        // 教程默认值：轮询 2 秒间隔，最长 180 秒
-        const val POLL_INTERVAL_MS = 2000L
-        const val MAX_POLL_TIME_MS = 180_000L
+        /** 轮询最大总时长（秒），与 [GenerationService.expectedTotalSec] 共享 */
+        const val MAX_POLL_TIME_SEC = 180
+        const val MAX_POLL_TIME_MS = MAX_POLL_TIME_SEC * 1000L
+
+        /** 单次轮询间隔上限：5 秒 */
+        const val MAX_POLL_INTERVAL_SEC = 5L
+
+        /** 连续网络异常重试上限：超过则判任务失败 */
+        const val MAX_NETWORK_RETRIES = 5
+
         // 并发生成上限：文案声明「1-6 张」，UI / ViewModel / Service 统一引用此常量
         const val MAX_VARIANTS = 6
+
+        /** 兼容旧引用（已废弃，请改用 [MAX_POLL_TIME_SEC]） */
+        @Deprecated("Use MAX_POLL_TIME_SEC instead", ReplaceWith("MAX_POLL_TIME_SEC"))
+        const val POLL_INTERVAL_MS = 2000L
     }
 }

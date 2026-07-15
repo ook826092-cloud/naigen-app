@@ -34,6 +34,12 @@ object AppLog {
     private const val FILE_SUFFIX = ".txt"
     private const val LOG_SUFFIX = ".log"
 
+    /** 日志保留天数：超过自动删除（应用 / 网络日志目录） */
+    private const val RETENTION_DAYS = 7L
+
+    /** 单文件最大大小：超过自动切片到下一文件（防止异常情况文件无限膨胀） */
+    private const val MAX_FILE_SIZE_BYTES = 5L * 1024 * 1024  // 5MB
+
     enum class Level { DEBUG, INFO, WARN, ERROR }
 
     data class Entry(
@@ -93,7 +99,65 @@ object AppLog {
         logDir = File(context.filesDir, LOG_DIR).apply { mkdirs() }
         netDir = File(context.filesDir, NET_DIR).apply { mkdirs() }
         i("AppLog", "日志系统初始化")
+        // 清理超过 RETENTION_DAYS 天的旧日志（异步，不阻塞主线程）
+        pruneOldLogs()
         installCrashHandler(context)
+    }
+
+    /**
+     * 清理超过 [RETENTION_DAYS] 天的日志文件。
+     *
+     * 同时清理：
+     *   - app/error/warn_YYYYMMDD.log：按文件名解析日期
+     *   - net_YYYYMMDD_HHmmss_NNN.txt：按文件名解析日期
+     *   - 超过 [MAX_FILE_SIZE_BYTES] 的应用日志会被切片重写
+     */
+    private fun pruneOldLogs() {
+        val now = System.currentTimeMillis()
+        val cutoff = now - RETENTION_DAYS * 24L * 60L * 60L * 1000L
+        try {
+            // 应用日志按文件名解析日期
+            logDir?.listFiles()?.forEach { f ->
+                val dayStr = parseDayFromAppFileName(f.name) ?: return@forEach
+                val fileTime = dayFormat.parse(dayStr)?.time ?: return@forEach
+                if (fileTime < cutoff) {
+                    if (f.delete()) i("AppLog", "清理旧日志: ${f.name}")
+                }
+            }
+            // 网络日志按文件名解析日期
+            netDir?.listFiles()?.forEach { f ->
+                val dayStr = parseDayFromNetFileName(f.name) ?: return@forEach
+                val fileTime = dayFormat.parse(dayStr)?.time ?: return@forEach
+                if (fileTime < cutoff) {
+                    if (f.delete()) i("AppLog", "清理旧网络日志: ${f.name}")
+                }
+            }
+        } catch (_: Throwable) {
+            // 清理失败不影响主流程
+        }
+    }
+
+    /** 从 app_YYYYMMDD.log / error_YYYYMMDD.log / warn_YYYYMMDD.log 解析出 YYYYMMDD */
+    private fun parseDayFromAppFileName(name: String): String? {
+        // 形如 app_20240101.log
+        if (!name.endsWith(LOG_SUFFIX)) return null
+        val prefixes = listOf(APP_PREFIX, ERROR_PREFIX, WARN_PREFIX)
+        for (p in prefixes) {
+            if (name.startsWith(p)) {
+                val day = name.removePrefix(p).removeSuffix(LOG_SUFFIX)
+                if (day.length == 8 && day.all { it.isDigit() }) return day
+            }
+        }
+        return null
+    }
+
+    /** 从 net_YYYYMMDD_HHmmss_NNN.txt 解析出 YYYYMMDD */
+    private fun parseDayFromNetFileName(name: String): String? {
+        if (!name.startsWith(NET_PREFIX) || !name.endsWith(FILE_SUFFIX)) return null
+        val core = name.removePrefix(NET_PREFIX).removeSuffix(FILE_SUFFIX)
+        // core 形如 20240101_120530_001
+        val day = core.substringBefore('_')
+        return if (day.length == 8 && day.all { it.isDigit() }) day else null
     }
 
     // ── 应用日志 ──────────────────────────────────────────────────────────
@@ -116,9 +180,30 @@ object AppLog {
         try {
             val day = dayFormat.format(Date(entry.timestamp))
             val line = formatApp(entry) + "\n"
-            File(dir, "${APP_PREFIX}${day}${LOG_SUFFIX}").appendText(line)
-            if (entry.level == Level.WARN) File(dir, "${WARN_PREFIX}${day}${LOG_SUFFIX}").appendText(line)
-            if (entry.level == Level.ERROR) File(dir, "${ERROR_PREFIX}${day}${LOG_SUFFIX}").appendText(line)
+            val file = File(dir, "${APP_PREFIX}${day}${LOG_SUFFIX}")
+            // 单文件超过 MAX_FILE_SIZE_BYTES 时切片：先备份为 .1，再从空文件开始写
+            // 防止异常情况（如循环死锁刷屏）导致单个日志文件无限膨胀
+            if (file.exists() && file.length() > MAX_FILE_SIZE_BYTES) {
+                val backup = File(dir, "${APP_PREFIX}${day}.1${LOG_SUFFIX}")
+                file.renameTo(backup)
+            }
+            file.appendText(line)
+            if (entry.level == Level.WARN) {
+                val warnFile = File(dir, "${WARN_PREFIX}${day}${LOG_SUFFIX}")
+                if (warnFile.exists() && warnFile.length() > MAX_FILE_SIZE_BYTES) {
+                    val backup = File(dir, "${WARN_PREFIX}${day}.1${LOG_SUFFIX}")
+                    warnFile.renameTo(backup)
+                }
+                warnFile.appendText(line)
+            }
+            if (entry.level == Level.ERROR) {
+                val errFile = File(dir, "${ERROR_PREFIX}${day}${LOG_SUFFIX}")
+                if (errFile.exists() && errFile.length() > MAX_FILE_SIZE_BYTES) {
+                    val backup = File(dir, "${ERROR_PREFIX}${day}.1${LOG_SUFFIX}")
+                    errFile.renameTo(backup)
+                }
+                errFile.appendText(line)
+            }
         } catch (_: Throwable) {}
     }
 

@@ -55,13 +55,26 @@ data class CreateJobResponse(
  *   queued / running → 继续轮询
  *   done             → 取 [imageUrl] 下载
  *   failed           → 取 [error] 报错
+ *
+ * 额外状态（仅由客户端产生，API 不会返回）：
+ *   network_error    → 网络异常（IOException / HTTP 5xx），
+ *                      [NaiRepository] 应当重试而不是判任务失败
  */
 @Serializable
 data class JobStatusResponse(
     val status: String = "",
     val imageUrl: String? = null,
     val error: String? = null
-)
+) {
+    companion object {
+        /** API 真正判任务失败 */
+        const val STATUS_FAILED = "failed"
+        /** 客户端网络异常，可重试 */
+        const val STATUS_NETWORK_ERROR = "network_error"
+        /** 任务完成 */
+        const val STATUS_DONE = "done"
+    }
+}
 
 /**
  * GET /api/me?token=... 的余额响应。

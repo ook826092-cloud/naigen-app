@@ -32,6 +32,10 @@ class NaiApplication : Application(), ImageLoaderFactory {
     lateinit var settingsStore: SettingsStore
         private set
 
+    /** API 客户端实例。生产用单例，便于共享 OkHttp 连接池给 Coil ImageLoader。 */
+    lateinit var naiApiClient: NaiApiClient
+        private set
+
     lateinit var naiRepository: NaiRepository
         private set
 
@@ -51,11 +55,13 @@ class NaiApplication : Application(), ImageLoaderFactory {
         com.naigen.app.util.AppLog.init(this)
         com.naigen.app.util.AppLog.i("App", "NaiGen 启动")
 
-        // 1) SettingsStore（DataStore）
+        // 1) SettingsStore（DataStore + 加密 token）
         settingsStore = SettingsStore(this)
 
         // 2) API client + Repository
-        naiRepository = NaiRepository(NaiApiClient, settingsStore)
+        //    使用 NaiApiClient.shared 单例，与 Coil 共享 OkHttp 连接池
+        naiApiClient = NaiApiClient.shared
+        naiRepository = NaiRepository(naiApiClient, settingsStore)
 
         // 3) Room DB
         val db = AppDatabase.get(this)
@@ -81,7 +87,7 @@ class NaiApplication : Application(), ImageLoaderFactory {
      */
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
-            .okHttpClient(NaiApiClient.client)
+            .okHttpClient(naiApiClient.client)
             .crossfade(150)
             .memoryCache {
                 MemoryCache.Builder(this)

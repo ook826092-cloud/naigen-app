@@ -38,8 +38,13 @@ class GenerationService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var currentJob: Job? = null
 
-    /** 当前任务总预计秒数（用于进度条最大值） */
-    private val expectedTotalSec = 60
+    /**
+     * 当前任务总预计秒数（用于进度条最大值）。
+     *
+     * 与 [NaiRepository.MAX_POLL_TIME_SEC] 共享，避免之前 60s 进度条上限与
+     * 180s 轮询超时不一致导致进度条顶满后给用户「卡住」的错觉。
+     */
+    private val expectedTotalSec = com.naigen.app.data.repository.NaiRepository.MAX_POLL_TIME_SEC
 
     /** 厂商灵动岛 / 流体云 / 标准通知统一适配器 */
     private lateinit var islandNotifier: IslandNotifier
