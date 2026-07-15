@@ -10,23 +10,22 @@ plugins {
 
 // ── 从 version.properties 读取版本号（单一来源）───────────────────────────
 // 工作流 push 到 main 时会调 scripts/bump-version.sh 自增 PATCH
-val versionPropsFile = rootProject.file("version.properties")
-val versionMajor: Int
-val versionMinor: Int
-val versionPatch: Int
-if (versionPropsFile.exists()) {
-    val props = Properties()
-    versionPropsFile.inputStream().use { props.load(it) }
-    versionMajor = (props.getProperty("VERSION_MAJOR") ?: "1").toInt()
-    versionMinor = (props.getProperty("VERSION_MINOR") ?: "0").toInt()
-    versionPatch = (props.getProperty("VERSION_PATCH") ?: "0").toInt()
-} else {
-    versionMajor = 1
-    versionMinor = 0
-    versionPatch = 0
+data class VersionTriple(val major: Int, val minor: Int, val patch: Int) {
+    val code: Int get() = major * 10000 + minor * 100 + patch
+    val name: String get() = "$major.$minor.$patch"
 }
-val versionCodeVal = versionMajor * 10000 + versionMinor * 100 + versionPatch
-val versionNameVal = "$versionMajor.$versionMinor.$versionPatch"
+
+val appVersion: VersionTriple = run {
+    val f = rootProject.file("version.properties")
+    if (!f.exists()) return@run VersionTriple(1, 0, 0)
+    val props = Properties()
+    f.inputStream().use { props.load(it) }
+    VersionTriple(
+        major = (props.getProperty("VERSION_MAJOR") ?: "1").toInt(),
+        minor = (props.getProperty("VERSION_MINOR") ?: "0").toInt(),
+        patch = (props.getProperty("VERSION_PATCH") ?: "0").toInt()
+    )
+}
 
 android {
     namespace = "com.naigen.app"
@@ -36,8 +35,8 @@ android {
         applicationId = "com.naigen.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = versionCodeVal
-        versionName = versionNameVal
+        versionCode = appVersion.code
+        versionName = appVersion.name
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
