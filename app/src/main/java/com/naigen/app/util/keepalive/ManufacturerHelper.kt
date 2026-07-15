@@ -196,8 +196,8 @@ object ManufacturerHelper {
                         "com.miui.permcenter.permissions.PermissionsEditorActivity"
                     ))
                 )
-                KeepAlivePage.APP_DETAIL -> appDetailIntent()
-                KeepAlivePage.NOTIFICATION -> notificationIntent()
+                KeepAlivePage.APP_DETAIL -> listOf(appDetailIntent())
+                KeepAlivePage.NOTIFICATION -> listOf(notificationIntent())
             }
 
             Manufacturer.HUAWEI -> when (page) {
@@ -227,8 +227,8 @@ object ManufacturerHelper {
                         "com.huawei.systemmanager.addviewmonitor.AddViewMonitorActivity"
                     ))
                 )
-                KeepAlivePage.APP_DETAIL -> appDetailIntent()
-                KeepAlivePage.NOTIFICATION -> notificationIntent()
+                KeepAlivePage.APP_DETAIL -> listOf(appDetailIntent())
+                KeepAlivePage.NOTIFICATION -> listOf(notificationIntent())
             }
 
             Manufacturer.HONOR -> when (page) {
@@ -259,8 +259,8 @@ object ManufacturerHelper {
                         "com.hihonor.systemmanager.addviewmonitor.AddViewMonitorActivity"
                     ))
                 )
-                KeepAlivePage.APP_DETAIL -> appDetailIntent()
-                KeepAlivePage.NOTIFICATION -> notificationIntent()
+                KeepAlivePage.APP_DETAIL -> listOf(appDetailIntent())
+                KeepAlivePage.NOTIFICATION -> listOf(notificationIntent())
             }
 
             Manufacturer.OPPO -> when (page) {
@@ -294,8 +294,8 @@ object ManufacturerHelper {
                         "com.coloros.safecenter.permission.floatwindow.FloatWindowListActivity"
                     ))
                 )
-                KeepAlivePage.APP_DETAIL -> appDetailIntent()
-                KeepAlivePage.NOTIFICATION -> notificationIntent()
+                KeepAlivePage.APP_DETAIL -> listOf(appDetailIntent())
+                KeepAlivePage.NOTIFICATION -> listOf(notificationIntent())
             }
 
             Manufacturer.ONEPLUS -> when (page) {
@@ -323,8 +323,8 @@ object ManufacturerHelper {
                         "com.coloros.safecenter.permission.floatwindow.FloatWindowListActivity"
                     ))
                 )
-                KeepAlivePage.APP_DETAIL -> appDetailIntent()
-                KeepAlivePage.NOTIFICATION -> notificationIntent()
+                KeepAlivePage.APP_DETAIL -> listOf(appDetailIntent())
+                KeepAlivePage.NOTIFICATION -> listOf(notificationIntent())
             }
 
             Manufacturer.VIVO -> when (page) {
@@ -355,8 +355,8 @@ object ManufacturerHelper {
                         "com.vivo.permissionmanager.activity.BgStartUpManagerActivity"
                     ))
                 )
-                KeepAlivePage.APP_DETAIL -> appDetailIntent()
-                KeepAlivePage.NOTIFICATION -> notificationIntent()
+                KeepAlivePage.APP_DETAIL -> listOf(appDetailIntent())
+                KeepAlivePage.NOTIFICATION -> listOf(notificationIntent())
             }
 
             Manufacturer.SAMSUNG -> when (page) {
@@ -377,9 +377,9 @@ object ManufacturerHelper {
                     )),
                     batteryOptimizationIntent()
                 )
-                KeepAlivePage.BACKGROUND_POPUP -> emptyList()
-                KeepAlivePage.APP_DETAIL -> appDetailIntent()
-                KeepAlivePage.NOTIFICATION -> notificationIntent()
+                KeepAlivePage.BACKGROUND_POPUP -> emptyList<Intent>()
+                KeepAlivePage.APP_DETAIL -> listOf(appDetailIntent())
+                KeepAlivePage.NOTIFICATION -> listOf(notificationIntent())
             }
 
             Manufacturer.MEIZU -> when (page) {
@@ -406,8 +406,8 @@ object ManufacturerHelper {
                         "com.meizu.safe.permission.FloatWindowActivity"
                     ))
                 )
-                KeepAlivePage.APP_DETAIL -> appDetailIntent()
-                KeepAlivePage.NOTIFICATION -> notificationIntent()
+                KeepAlivePage.APP_DETAIL -> listOf(appDetailIntent())
+                KeepAlivePage.NOTIFICATION -> listOf(notificationIntent())
             }
 
             Manufacturer.REALME -> when (page) {
@@ -434,16 +434,16 @@ object ManufacturerHelper {
                         "com.coloros.safecenter.permission.floatwindow.FloatWindowListActivity"
                     ))
                 )
-                KeepAlivePage.APP_DETAIL -> appDetailIntent()
-                KeepAlivePage.NOTIFICATION -> notificationIntent()
+                KeepAlivePage.APP_DETAIL -> listOf(appDetailIntent())
+                KeepAlivePage.NOTIFICATION -> listOf(notificationIntent())
             }
 
             Manufacturer.NATIVE -> when (page) {
-                KeepAlivePage.AUTOSTART -> emptyList()
+                KeepAlivePage.AUTOSTART -> emptyList<Intent>()
                 KeepAlivePage.BATTERY_OPTIMIZATION -> listOf(batteryOptimizationIntent())
-                KeepAlivePage.BACKGROUND_POPUP -> emptyList()
-                KeepAlivePage.APP_DETAIL -> appDetailIntent()
-                KeepAlivePage.NOTIFICATION -> notificationIntent()
+                KeepAlivePage.BACKGROUND_POPUP -> emptyList<Intent>()
+                KeepAlivePage.APP_DETAIL -> listOf(listOf(appDetailIntent()))
+                KeepAlivePage.NOTIFICATION -> listOf(listOf(notificationIntent()))
             }
         }
     }

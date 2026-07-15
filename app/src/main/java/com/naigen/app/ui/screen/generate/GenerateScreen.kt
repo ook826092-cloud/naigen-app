@@ -324,6 +324,7 @@ private fun ProgressCard(progress: GenProgress, modifier: Modifier = Modifier) {
         is GenProgress.Creating -> "创建任务中… (${progress.variant + 1}/${progress.total})"
         is GenProgress.Polling -> "生成中… ${progress.elapsedSec}s · job ${progress.jobId.take(8)}"
         is GenProgress.Downloading -> "下载图片中…"
+        is GenProgress.OneDone -> "已出 ${progress.variant + 1} 张…"
         is GenProgress.AllDone -> "完成"
         GenProgress.Idle -> ""
     }
