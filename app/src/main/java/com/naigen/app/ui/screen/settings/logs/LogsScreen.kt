@@ -39,6 +39,7 @@ fun LogsScreen(nav: NavController) {
     var tab by remember { mutableStateOf(0) }
     var appFiles by remember { mutableStateOf(AppLog.getAppFiles()) }
     var networkEntries by remember { mutableStateOf(AppLog.getNetworkEntries()) }
+    var networkFiles by remember { mutableStateOf(AppLog.getNetworkFiles()) }
 
     var detailFile: Pair<String, Boolean>? by remember { mutableStateOf(null) }
     var showCurrentLog by remember { mutableStateOf(false) }
@@ -82,10 +83,10 @@ fun LogsScreen(nav: NavController) {
                 title = { Text("日志") },
                 navigationIcon = { IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.Outlined.ArrowBack, contentDescription = "返回") } },
                 actions = {
-                    IconButton(onClick = { appFiles = AppLog.getAppFiles(); networkEntries = AppLog.getNetworkEntries() }) { Icon(Icons.Outlined.Refresh, contentDescription = "刷新") }
-                    IconButton(onClick = { AppLog.clearAll(); appFiles = AppLog.getAppFiles(); networkEntries = AppLog.getNetworkEntries(); scope.launch { snackbarHostState.showSnackbar("已清空") } }) { Icon(Icons.Outlined.Delete, contentDescription = "清空", tint = MaterialTheme.colorScheme.error) }
+                    IconButton(onClick = { appFiles = AppLog.getAppFiles(); networkFiles = AppLog.getNetworkFiles() }) { Icon(Icons.Outlined.Refresh, contentDescription = "刷新") }
+                    IconButton(onClick = { AppLog.clearAll(); appFiles = AppLog.getAppFiles(); networkFiles = AppLog.getNetworkFiles(); scope.launch { snackbarHostState.showSnackbar("已清空") } }) { Icon(Icons.Outlined.Delete, contentDescription = "清空", tint = MaterialTheme.colorScheme.error) }
                 },
-                windowInsets = androidx.compose.foundation.layout.WindowInsets.statusBars,
+                modifier = Modifier.windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.statusBars),
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         },
@@ -94,7 +95,7 @@ fun LogsScreen(nav: NavController) {
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
             TabRow(selectedTabIndex = tab) {
                 Tab(selected = tab == 0, onClick = { tab = 0; appFiles = AppLog.getAppFiles() }, text = { Text("应用日志") })
-                Tab(selected = tab == 1, onClick = { tab = 1; networkEntries = AppLog.getNetworkEntries() }, text = { Text("请求日志") })
+                Tab(selected = tab == 1, onClick = { tab = 1; networkFiles = AppLog.getNetworkFiles() }, text = { Text("请求日志 (${networkFiles.size})") })
             }
 
             when (tab) {
@@ -122,7 +123,7 @@ fun LogsScreen(nav: NavController) {
                     }
                 }
                 1 -> {
-                    if (networkEntries.isEmpty()) {
+                    if (networkFiles.isEmpty()) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text("暂无网络请求", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -132,10 +133,19 @@ fun LogsScreen(nav: NavController) {
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            items(networkEntries) { entry ->
-                                NetworkListItem(entry,
-                                    { detailNetwork = entry },
-                                    { longPressNetwork = entry })
+                            items(networkFiles, key = { it.name }) { f ->
+                                NetworkFileItem(
+                                    name = f.name,
+                                    size = f.size,
+                                    modified = f.modified,
+                                    onClick = {
+                                        // 先从内存找 NetworkEntry（有4子Tab），找不到用文件内容
+                                        val entry = AppLog.getNetworkEntries().find { it.fileName == f.name }
+                                        if (entry != null) detailNetwork = entry
+                                        else detailFile = Pair(f.name, true)
+                                    },
+                                    onLongPress = { longPressFile = Pair(f.name, true) }
+                                )
                             }
                         }
                     }
@@ -195,33 +205,29 @@ fun LogsScreen(nav: NavController) {
     }
 }
 
-// ── 网络请求列表项（概览：时间/方法/URL/耗时）──────────────────────────
+// ── 网络请求文件列表项 ─────────────────────────────────────────────────
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun NetworkListItem(
-    entry: AppLog.NetworkEntry,
+private fun NetworkFileItem(
+    name: String,
+    size: Long,
+    modified: Long,
     onClick: () -> Unit,
     onLongPress: () -> Unit
 ) {
-    val okColor = if (entry.responseCode in 200..299) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
     Row(
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surface)
             .combinedClickable(onClick = onClick, onLongClick = onLongPress)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 方法标签
-        Text(entry.method, style = MaterialTheme.typography.labelSmall, color = Color.White, fontWeight = FontWeight.Bold,
-            modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(okColor).padding(horizontal = 6.dp, vertical = 2.dp))
-        Spacer(Modifier.width(8.dp))
+        Icon(Icons.Outlined.Cloud, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(24.dp))
+        Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(entry.url.take(60), style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, maxLines = 1)
-            Row {
-                Text(DateUtils.relative(entry.timestamp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (entry.responseCode > 0) { Spacer(Modifier.width(6.dp)); Text("→ ${entry.responseCode}", style = MaterialTheme.typography.labelSmall, color = okColor) }
-                if (entry.durationMs > 0) { Spacer(Modifier.width(6.dp)); Text("${entry.durationMs}ms", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            }
+            Text(name, style = MaterialTheme.typography.bodyMedium, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium)
+            Text("${formatSize(size)} · ${DateUtils.display(modified)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
     }
@@ -250,7 +256,6 @@ private fun NetworkDetailPage(
                         if (file != null) shareFile(ctx, file, entry.fileName)
                     }) { Icon(Icons.Outlined.Share, contentDescription = "分享") }
                 },
-                windowInsets = androidx.compose.foundation.layout.WindowInsets.statusBars,
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         }
@@ -335,7 +340,6 @@ private fun LogDetailPage(title: String, content: String, onBack: () -> Unit, on
                 title = { Text(title, style = MaterialTheme.typography.labelMedium, maxLines = 1) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, contentDescription = "返回") } },
                 actions = { IconButton(onClick = onShare) { Icon(Icons.Outlined.Share, contentDescription = "分享") } },
-                windowInsets = androidx.compose.foundation.layout.WindowInsets.statusBars,
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         }

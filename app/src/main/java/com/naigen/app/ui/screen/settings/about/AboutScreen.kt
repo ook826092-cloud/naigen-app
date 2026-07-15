@@ -47,7 +47,7 @@ fun AboutScreen(nav: NavController) {
                         Icon(Icons.Outlined.ArrowBack, contentDescription = "返回")
                     }
                 },
-                windowInsets = androidx.compose.foundation.layout.WindowInsets.statusBars,
+                modifier = Modifier.windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.statusBars),
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
                 )

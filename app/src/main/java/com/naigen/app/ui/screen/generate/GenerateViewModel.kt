@@ -126,7 +126,7 @@ class GenerateViewModel(app: Application) : AndroidViewModel(app) {
 
     fun generate() {
         val current = _input.value
-        com.naigen.app.util.AppLog.d("GenVM", "generate() called, prompt=${current.prompt.take(50)}, styleKey=${current.styleKey}")
+        com.naigen.app.util.AppLog.d("GenVM", "generate() called: prompt=${current.prompt.take(50)} styleKey=${current.styleKey}")
         if (GenerationBus.isRunning.value) return
         if (current.prompt.isBlank()) {
             _toast.value = "请输入提示词"

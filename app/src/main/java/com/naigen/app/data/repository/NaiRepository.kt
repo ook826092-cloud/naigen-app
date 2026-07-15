@@ -63,13 +63,13 @@ class NaiRepository(
         onProgress: (GenProgress) -> Unit = {}
     ): GenResult = coroutineScope {
         val startTime = System.currentTimeMillis()
-        com.naigen.app.util.AppLog.i("NaiRepo", "开始生成: style=${request.styleKey} size=${request.sizeKey} variants=$variantIndex/$totalVariants")
+        com.naigen.app.util.AppLog.i("NaiRepo", "generate() start: style=${request.styleKey} size=${request.sizeKey} variants=$variantIndex/$totalVariants")
 
         val token = settings.token.first()
         val baseUrl = settings.baseUrl.first()
 
         if (token.isBlank()) {
-            com.naigen.app.util.AppLog.e("NaiRepo", "失败: Token 为空")
+            com.naigen.app.util.AppLog.e("NaiRepo", "FAILED: token is empty")
             return@coroutineScope GenResult(
                 success = false,
                 styleKey = request.styleKey,
@@ -84,7 +84,7 @@ class NaiRepository(
         val styleKey = request.customArtist.ifBlank { request.styleKey }
         val preset = StyleRegistry.get(styleKey)
         val artistString = StyleRegistry.resolveArtistString(styleKey)
-        com.naigen.app.util.AppLog.i("NaiRepo", "风格路由: ${styleKey} → ${preset?.name ?: "自定义画师串"}")
+        com.naigen.app.util.AppLog.i("NaiRepo", "style_route: ${styleKey} -> ${preset?.name ?: "custom_artist"}")
 
         // ── 2) 参数合并 ──
         val size = SizeOptions.get(request.sizeKey)
@@ -118,7 +118,7 @@ class NaiRepository(
             val createResp = client.createJob(baseUrl, body)
             val jobId = createResp.id
             if (jobId.isNullOrBlank()) {
-                com.naigen.app.util.AppLog.e("NaiRepo", "创建任务失败: ${createResp.error}")
+                com.naigen.app.util.AppLog.e("NaiRepo", "create_job_failed: ${createResp.error}")
                 return@coroutineScope GenResult(
                     success = false, styleKey = styleKey, styleName = styleName,
                     sizeKey = request.sizeKey,
@@ -126,7 +126,7 @@ class NaiRepository(
                     errorMessage = createResp.error ?: "创建任务失败，未返回 job id"
                 )
             }
-            com.naigen.app.util.AppLog.i("NaiRepo", "任务已创建: jobId=$jobId")
+            com.naigen.app.util.AppLog.i("NaiRepo", "job_created: jobId=$jobId")
 
             var elapsed = 0
             while (elapsed * 1000L < MAX_POLL_TIME_MS) {
@@ -140,7 +140,7 @@ class NaiRepository(
                     "done" -> {
                         val imageUrl = status.imageUrl
                         if (imageUrl.isNullOrBlank()) {
-                            com.naigen.app.util.AppLog.e("NaiRepo", "任务完成但 imageUrl 为空")
+                            com.naigen.app.util.AppLog.e("NaiRepo", "done_but_no_imageUrl")
                             return@coroutineScope GenResult(
                                 success = false, styleKey = styleKey, styleName = styleName,
                                 sizeKey = request.sizeKey,
@@ -151,7 +151,7 @@ class NaiRepository(
                         onProgress(GenProgress.Downloading(variantIndex, totalVariants))
                         val bytes = client.downloadImage(baseUrl, imageUrl)
                         if (bytes == null) {
-                            com.naigen.app.util.AppLog.e("NaiRepo", "下载图片失败")
+                            com.naigen.app.util.AppLog.e("NaiRepo", "download_failed")
                             return@coroutineScope GenResult(
                                 success = false, styleKey = styleKey, styleName = styleName,
                                 sizeKey = request.sizeKey,
@@ -161,7 +161,7 @@ class NaiRepository(
                         }
                         val fullUrl = if (imageUrl.startsWith("http")) imageUrl else "${baseUrl.trimEnd('/')}$imageUrl"
                         val genTime = System.currentTimeMillis() - startTime
-                        com.naigen.app.util.AppLog.i("NaiRepo", "生成成功: ${styleName}, ${bytes.size}B, ${genTime}ms")
+                        com.naigen.app.util.AppLog.i("NaiRepo", "success: style=${styleName} size=${bytes.size}B time=${genTime}ms")
                         return@coroutineScope GenResult(
                             success = true,
                             images = listOf(GenImage(bytes, fullUrl)),
@@ -171,7 +171,7 @@ class NaiRepository(
                         )
                     }
                     "failed" -> {
-                        com.naigen.app.util.AppLog.e("NaiRepo", "任务失败: ${status.error}")
+                        com.naigen.app.util.AppLog.e("NaiRepo", "job_failed: ${status.error}")
                         return@coroutineScope GenResult(
                             success = false, styleKey = styleKey, styleName = styleName,
                             sizeKey = request.sizeKey,
@@ -181,7 +181,7 @@ class NaiRepository(
                     }
                 }
             }
-            com.naigen.app.util.AppLog.e("NaiRepo", "轮询超时 (${MAX_POLL_TIME_MS / 1000}s)")
+            com.naigen.app.util.AppLog.e("NaiRepo", "poll_timeout (${MAX_POLL_TIME_MS / 1000}s)")
             GenResult(
                 success = false, styleKey = styleKey, styleName = styleName,
                 sizeKey = request.sizeKey,
@@ -191,7 +191,7 @@ class NaiRepository(
         } catch (cancellation: kotlinx.coroutines.CancellationException) {
             throw cancellation
         } catch (e: Exception) {
-            com.naigen.app.util.AppLog.e("NaiRepo", "异常: ${e.message}", e)
+            com.naigen.app.util.AppLog.e("NaiRepo", "exception: ${e.message}", e)
             GenResult(
                 success = false, styleKey = styleKey, styleName = styleName,
                 sizeKey = request.sizeKey,
@@ -235,7 +235,7 @@ class NaiRepository(
         if (token.isBlank()) return null to "未配置 API Token"
         val baseUrl = settings.baseUrl.first()
         val resp = client.fetchBalance(baseUrl, token)
-        return resp.points to resp.error
+        return resp.getPoints() to resp.error
     }
 
     /**

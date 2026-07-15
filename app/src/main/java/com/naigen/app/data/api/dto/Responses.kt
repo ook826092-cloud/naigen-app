@@ -65,10 +65,38 @@ data class JobStatusResponse(
 
 /**
  * GET /api/me?token=... 的余额响应。
+ *
+ * API 可能返回多种字段名: points / point / balance / credit / credits
+ * 这里全部声明为可选，解析时取第一个非空的。
  */
 @Serializable
 data class BalanceResponse(
     val token: String? = null,
     val points: Int? = null,
+    val point: Int? = null,
+    val balance: Int? = null,
+    val credit: Int? = null,
+    val credits: Int? = null,
+    val subscription: SubscriptionInfo? = null,
     val error: String? = null
+) {
+    /** 取第一个非空的点数字段 */
+    fun getPoints(): Int? = points ?: point ?: balance ?: credit ?: credits
+        ?: subscription?.perks?.memoryOptimization ?: subscription?.fixedTrainingStepsLeft
+}
+
+@Serializable
+data class SubscriptionInfo(
+    val active: Boolean? = null,
+    val tier: String? = null,
+    val perks: PerksInfo? = null,
+    val fixedTrainingStepsLeft: Int? = null
+)
+
+@Serializable
+data class PerksInfo(
+    val memoryOptimization: Int? = null,
+    val priorityGeneration: Boolean? = null,
+    val concurrentRequests: Int? = null,
+    val priorityTraining: Boolean? = null
 )
