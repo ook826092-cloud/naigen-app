@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -26,6 +27,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.naigen.app.R
 import com.naigen.app.ui.screen.album.AlbumScreen
 import com.naigen.app.ui.screen.generate.GenerateScreen
 import com.naigen.app.ui.screen.settings.SettingsScreen
@@ -37,12 +39,12 @@ import com.naigen.app.ui.screen.settings.language.LanguageScreen
 import com.naigen.app.ui.screen.settings.logs.LogsScreen
 import com.naigen.app.ui.screen.settings.styles.StyleManagerScreen
 
-private data class Tab(val dest: Dest, val label: String, val icon: ImageVector)
+private data class Tab(val dest: Dest, @androidx.annotation.StringRes val labelRes: Int, val icon: ImageVector)
 
 private val TABS = listOf(
-    Tab(Dest.Generate, "生成", Icons.Outlined.AutoAwesome),
-    Tab(Dest.Album, "相册", Icons.Outlined.PhotoLibrary),
-    Tab(Dest.Settings, "设置", Icons.Outlined.Settings)
+    Tab(Dest.Generate, R.string.nav_generate, Icons.Outlined.AutoAwesome),
+    Tab(Dest.Album, R.string.nav_album, Icons.Outlined.PhotoLibrary),
+    Tab(Dest.Settings, R.string.nav_settings, Icons.Outlined.Settings)
 )
 
 @Composable
@@ -72,8 +74,8 @@ fun AppNavGraph() {
                                     restoreState = true
                                 }
                             },
-                            icon = { Icon(tab.icon, contentDescription = tab.label) },
-                            label = { Text(tab.label, style = MaterialTheme.typography.labelSmall) },
+                            icon = { Icon(tab.icon, contentDescription = null) },
+                            label = { Text(stringResource(tab.labelRes), style = MaterialTheme.typography.labelSmall) },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = MaterialTheme.colorScheme.primary,
                                 selectedTextColor = MaterialTheme.colorScheme.primary,

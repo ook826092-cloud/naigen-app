@@ -1,58 +1,182 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- App -->
     <string name="app_name">NaiGen</string>
-    <string name="app_short">生图</string>
-    <string name="app_widget_label">快速生图</string>
 
-    <!-- Bottom Nav -->
+    <!-- Nav -->
     <string name="nav_generate">生成</string>
-    <string name="nav_history">历史</string>
-    <string name="nav_favorites">收藏</string>
-    <string name="nav_styles">风格</string>
+    <string name="nav_album">相册</string>
     <string name="nav_settings">设置</string>
 
-    <!-- Generation -->
-    <string name="gen_prompt_hint">输入正向提示词，逗号分隔。例如：1girl, solo, silver hair, masterpiece…</string>
+    <!-- Generate -->
+    <string name="gen_title">生成</string>
+    <string name="gen_prompt_hint">输入正向提示词，逗号分隔\n例如：1girl, solo, silver hair, masterpiece…</string>
     <string name="gen_negative_hint">负面提示词（可选）</string>
-    <string name="gen_button_generate">生成</string>
-    <string name="gen_button_variant">并发出 %1$d 张</string>
-    <string name="gen_status_queued">排队中</string>
-    <string name="gen_status_running">生成中…%1$d 秒</string>
-    <string name="gen_status_done">完成</string>
-    <string name="gen_status_failed">失败：%1$s</string>
+    <string name="gen_style">画风</string>
+    <string name="gen_size">尺寸</string>
+    <string name="gen_variants">张数</string>
+    <string name="gen_advanced">高级参数（NAI 4.5 全参数）</string>
+    <string name="gen_expand">展开</string>
+    <string name="gen_collapse">收起</string>
+    <string name="gen_custom_artist">自定义画师串</string>
+    <string name="gen_custom_artist_hint">覆盖风格预设，例如 by wlop, artist:mika pikazo</string>
+    <string name="gen_btn_generate">生成</string>
+    <string name="gen_btn_variant">并发出 %1$d 张</string>
+    <string name="gen_btn_cancel">取消生成</string>
+    <string name="gen_creating">创建任务中…</string>
+    <string name="gen_polling">生成中… %1$d 秒</string>
+    <string name="gen_downloading">下载图片中…</string>
+    <string name="gen_done">完成</string>
+    <string name="gen_save_gallery">相册</string>
+    <string name="gen_share">分享</string>
+    <string name="gen_saved">已保存到相册 Pictures/NaiGen/</string>
+    <string name="gen_save_failed">保存失败</string>
+    <string name="gen_no_prompt">请输入提示词</string>
+
+    <!-- Album -->
+    <string name="album_title">相册</string>
+    <string name="album_empty">还没有生成图片</string>
+    <string name="album_empty_hint">去「生成」Tab 创作你的第一张图吧</string>
+    <string name="album_clear">清空</string>
+    <string name="album_clear_confirm">将删除所有 %1$d 张图片，不可恢复。确定继续？</string>
+    <string name="album_clear_btn">清空</string>
 
     <!-- Settings -->
-    <string name="settings_token">API Token</string>
-    <string name="settings_token_hint">STA1N-xxxxx…</string>
-    <string name="settings_base_url">API 地址</string>
-    <string name="settings_balance">查询余额</string>
-    <string name="settings_about">关于</string>
+    <string name="settings_title">设置</string>
+    <string name="settings_api">API</string>
+    <string name="settings_api_provider">API 服务商</string>
+    <string name="settings_api_not_configured">Nai2API · 未配置 Token</string>
+    <string name="settings_api_configured">Nai2API · 已配置 (%1$s…)</string>
+    <string name="settings_style">画风</string>
+    <string name="settings_style_manager">风格管理</string>
+    <string name="settings_style_subtitle">内置 7 + 社区 29 + 自定义</string>
+    <string name="settings_perf">性能</string>
+    <string name="settings_keepalive">后台保活</string>
+    <string name="settings_keepalive_subtitle">厂商识别 + 自启动配置</string>
+    <string name="settings_about_group">关于</string>
+    <string name="settings_language">语言</string>
+    <string name="settings_language_subtitle">App 界面语言（7 种）</string>
+    <string name="settings_logs">应用日志</string>
+    <string name="settings_logs_subtitle">查看运行日志和网络请求</string>
+    <string name="settings_about_app">关于本应用</string>
+    <string name="settings_about_subtitle">版本、源码、隐私政策</string>
+    <string name="settings_docs">说明文档</string>
+    <string name="settings_docs_subtitle">GitHub 仓库 README（7 种语言）</string>
+
+    <!-- API Config -->
+    <string name="api_title">API 服务商</string>
+    <string name="api_provider">服务商</string>
+    <string name="api_provider_name">Nai2API</string>
+    <string name="api_provider_builtin">(内置)</string>
+    <string name="api_provider_desc">当前仅支持 Nai2API（https://nai.sta1n.cn），无需手动配置地址。</string>
+    <string name="api_token">API Token</string>
+    <string name="api_token_hint">STA1N-xxxxx…</string>
+    <string name="api_show_plaintext">显示明文</string>
+    <string name="api_nsfw">显示 NSFW 风格</string>
+    <string name="api_nsfw_desc">开启后风格管理页会显示 questionable / explicit 标记的风格</string>
+    <string name="api_privacy_note">Token 仅保存在 App 私有目录的 DataStore 中，不会上传任何服务器。请勿在公开环境分享截图。</string>
+
+    <!-- KeepAlive -->
+    <string name="keepalive_title">后台保活</string>
+    <string name="keepalive_detected">识别到设备品牌</string>
+    <string name="keepalive_tips_native">你的设备是原生 Android，只需关闭电池优化即可。</string>
+    <string name="keepalive_autostart">1. 自启动</string>
+    <string name="keepalive_autostart_desc">允许 App 在开机 / 后台被回收后自动拉起</string>
+    <string name="keepalive_battery">2. 电池 / 省电策略</string>
+    <string name="keepalive_battery_whitelisted">当前：已加入白名单 ✓</string>
+    <string name="keepalive_battery_not_whitelisted">当前：未加入白名单（生成中可能被杀）</string>
+    <string name="keepalive_popup">3. 后台弹出活动</string>
+    <string name="keepalive_popup_desc">允许 App 在后台弹出通知和窗口</string>
+    <string name="keepalive_notification">通知权限</string>
+    <string name="keepalive_notification_on">已开启 ✓</string>
+    <string name="keepalive_notification_off">未开启（无法收到生成进度通知）</string>
+    <string name="keepalive_fallback">兜底入口</string>
+    <string name="keepalive_app_detail">应用详情页</string>
+    <string name="keepalive_app_detail_desc">如果上面的入口都跳不过去，点这里</string>
+    <string name="keepalive_not_found">未找到入口，请手动前往设置</string>
+    <string name="keepalive_android15_title">Android 15 / 16 特别说明</string>
+    <string name="keepalive_fg_type">前台服务类型</string>
+    <string name="keepalive_channels">通知渠道</string>
+    <string name="keepalive_progress_freq">进度更新频率</string>
+
+    <!-- Shizuku -->
+    <string name="shizuku_title">Shizuku 增强保活</string>
+    <string name="shizuku_not_installed">未安装 Shizuku → 点击安装</string>
+    <string name="shizuku_not_running">已安装但未启动 Shizuku 服务</string>
+    <string name="shizuku_not_granted">Shizuku 已运行，待授权</string>
+    <string name="shizuku_granted">✓ 已授权，可一键加白名单 + 跳转隐藏设置</string>
+    <string name="shizuku_install">安装 Shizuku</string>
+    <string name="shizuku_authorize">授权 Shizuku</string>
+    <string name="shizuku_whitelist">一键加入电池白名单</string>
+
+    <!-- Style Manager -->
+    <string name="style_title">风格管理</string>
+    <string name="style_search">搜索风格名 / key</string>
+    <string name="style_nsfw_toggle">显示 NSFW 风格</string>
+    <string name="style_builtin">内置</string>
+    <string name="style_community">社区</string>
+    <string name="style_custom">自定义</string>
+    <string name="style_add">新建自定义风格</string>
+    <string name="style_name">风格名 *</string>
+    <string name="style_artist">画师串 * (例如: by wlop, artist:mika pikazo)</string>
+    <string name="style_pos_prefix">正向提示词前缀 (可选)</string>
+    <string name="style_neg_prompt">负面提示词 (可选)</string>
+    <string name="style_delete">删除自定义风格</string>
+    <string name="style_delete_confirm">确定删除「%1$s」？</string>
+    <string name="style_delete_btn">删除</string>
+    <string name="style_cancel">取消</string>
+    <string name="style_save">保存</string>
+
+    <!-- Language -->
+    <string name="lang_title">语言</string>
+    <string name="lang_select">选择 App 界面语言</string>
+    <string name="lang_system">跟随系统</string>
+    <string name="lang_restart_hint">切换语言后 App 会自动重启以应用设置。</string>
+    <string name="lang_note">Android 13+ 使用系统标准的多语言 API，可在系统设置中直接管理；Android 12 及以下由 AppCompat 模拟。</string>
+
+    <!-- Logs -->
+    <string name="logs_title">应用日志</string>
+    <string name="logs_export">导出</string>
+    <string name="logs_clear">清空</string>
+    <string name="logs_refresh">刷新</string>
+    <string name="logs_all">全部</string>
+    <string name="logs_network">网络</string>
+    <string name="logs_info">信息</string>
+    <string name="logs_warn">警告</string>
+    <string name="logs_error">错误</string>
+    <string name="logs_copied">已复制 %1$d 条日志到剪贴板</string>
+    <string name="logs_cleared">日志已清空</string>
+    <string name="logs_count">%1$d 条 · 持久化到 filesDir/logs/app.log</string>
+
+    <!-- About -->
+    <string name="about_title">关于</string>
+    <string name="about_subtitle">Android Nai2API 文生图客户端</string>
+    <string name="about_source_docs">源码与文档</string>
+    <string name="about_github">GitHub 仓库</string>
+    <string name="about_releases">Releases 下载页</string>
+    <string name="about_releases_desc">最新 APK</string>
+    <string name="about_readme_zh">中文说明文档</string>
+    <string name="about_readme_en">English Docs</string>
+    <string name="about_tutorial">原始教程</string>
+    <string name="about_privacy">隐私政策</string>
+    <string name="about_issues">Issues 反馈</string>
+    <string name="about_issues_desc">提交 bug 或建议</string>
+    <string name="about_tech_stack">技术栈</string>
+    <string name="about_credits">致谢</string>
+    <string name="about_credits_tutorial">Nai2API 教程</string>
+    <string name="about_credits_desc">本应用基于该教程实现</string>
+
+    <!-- Common -->
+    <string name="common_back">返回</string>
+    <string name="common_close">关闭</string>
+    <string name="common_ok">明白了</string>
+    <string name="common_confirm">确定</string>
+    <string name="common_cancel">取消</string>
 
     <!-- Service -->
     <string name="service_title">正在生成图像</string>
-    <string name="service_text">已等待 %1$d 秒，请稍候…</string>
     <string name="service_done_title">生成完成</string>
     <string name="service_failed_title">生成失败</string>
-
-    <!-- Misc -->
-    <string name="save_to_gallery">保存到相册</string>
-    <string name="share">分享</string>
-    <string name="regenerate">重新生成</string>
-    <string name="reuse_prompt">复用提示词</string>
-    <string name="empty_history">还没有生成记录</string>
-    <string name="empty_favorites">还没有收藏的提示词</string>
-    <string name="empty_styles">无可用风格</string>
-
-    <!-- KeepAlive -->
-    <string name="nav_keepalive">保活</string>
-    <string name="keepalive_title">后台保活</string>
-    <string name="keepalive_subtitle">为保障后台生成不中断，请按提示开启权限</string>
-    <string name="keepalive_open">前往开启</string>
-    <string name="keepalive_already">已开启</string>
-    <string name="keepalive_battery">电池优化</string>
-    <string name="keepalive_autostart">自启动</string>
-    <string name="keepalive_background">后台运行</string>
-    <string name="keepalive_notification">通知权限</string>
 
     <!-- Channels -->
     <string name="channel_generation">生成进度</string>
