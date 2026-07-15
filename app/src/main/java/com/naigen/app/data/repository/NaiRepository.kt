@@ -235,7 +235,7 @@ class NaiRepository(
         if (token.isBlank()) return null to "未配置 API Token"
         val baseUrl = settings.baseUrl.first()
         val resp = client.fetchBalance(baseUrl, token)
-        return resp.getPoints() to resp.error
+        return resp.resolvePoints() to resp.error
     }
 
     /**

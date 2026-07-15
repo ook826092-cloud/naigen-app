@@ -81,7 +81,7 @@ data class BalanceResponse(
     val error: String? = null
 ) {
     /** 取第一个非空的点数字段 */
-    fun getPoints(): Int? = points ?: point ?: balance ?: credit ?: credits
+    fun resolvePoints(): Int? = points ?: point ?: balance ?: credit ?: credits
         ?: subscription?.perks?.memoryOptimization ?: subscription?.fixedTrainingStepsLeft
 }
 
