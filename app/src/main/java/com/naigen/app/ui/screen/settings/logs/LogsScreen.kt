@@ -216,7 +216,12 @@ private fun AppLogEntryCard(entry: AppLog.Entry) {
         AppLog.Level.WARN -> androidx.compose.ui.graphics.Color(0xFFFF9800)
         AppLog.Level.ERROR -> MaterialTheme.colorScheme.error
     }
-    val levelText = when (entry.level) { AppLog.Level.DEBUG -> "D", AppLog.Level.INFO -> "I", AppLog.Level.WARN -> "W", AppLog.Level.ERROR -> "E" }
+    val levelText = when (entry.level) {
+        AppLog.Level.DEBUG -> "D"
+        AppLog.Level.INFO -> "I"
+        AppLog.Level.WARN -> "W"
+        AppLog.Level.ERROR -> "E"
+    }
     Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surface).padding(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(levelText, style = MaterialTheme.typography.labelSmall, color = androidx.compose.ui.graphics.Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.clip(RoundedCornerShape(3.dp)).background(levelColor).padding(horizontal = 4.dp, vertical = 1.dp))

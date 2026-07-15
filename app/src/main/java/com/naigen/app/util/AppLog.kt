@@ -210,7 +210,12 @@ object AppLog {
 
     private fun formatApp(entry: Entry): String {
         val time = dateFormat.format(Date(entry.timestamp))
-        val lv = when (entry.level) { Level.DEBUG -> "D", Level.INFO -> "I", Level.WARN -> "W", Level.ERROR -> "E" }
+        val lv = when (entry.level) {
+            Level.DEBUG -> "D"
+            Level.INFO -> "I"
+            Level.WARN -> "W"
+            Level.ERROR -> "E"
+        }
         val sb = StringBuilder("[$time] $lv/${entry.tag}: ${entry.message}")
         entry.throwable?.let { t ->
             sb.append("\n")
