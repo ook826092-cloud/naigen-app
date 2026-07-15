@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- iOS 极简风：纯白/纯灰 + 细边框 + SF Pro 字体感 -->
+    <style name="Theme.NaiGen" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@color/bg_primary_light</item>
+        <item name="android:navigationBarColor">@color/bg_primary_light</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowBackground">@color/bg_primary_light</item>
+    </style>
+</resources>

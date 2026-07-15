@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NaiGen</string>
+    <string name="app_short">生图</string>
+    <string name="app_widget_label">快速生图</string>
+
+    <!-- Bottom Nav -->
+    <string name="nav_generate">生成</string>
+    <string name="nav_history">历史</string>
+    <string name="nav_favorites">收藏</string>
+    <string name="nav_styles">风格</string>
+    <string name="nav_settings">设置</string>
+
+    <!-- Generation -->
+    <string name="gen_prompt_hint">输入正向提示词，逗号分隔。例如：1girl, solo, silver hair, masterpiece…</string>
+    <string name="gen_negative_hint">负面提示词（可选）</string>
+    <string name="gen_button_generate">生成</string>
+    <string name="gen_button_variant">并发出 %1$d 张</string>
+    <string name="gen_status_queued">排队中</string>
+    <string name="gen_status_running">生成中…%1$d 秒</string>
+    <string name="gen_status_done">完成</string>
+    <string name="gen_status_failed">失败：%1$s</string>
+
+    <!-- Settings -->
+    <string name="settings_token">API Token</string>
+    <string name="settings_token_hint">STA1N-xxxxx…</string>
+    <string name="settings_base_url">API 地址</string>
+    <string name="settings_balance">查询余额</string>
+    <string name="settings_about">关于</string>
+
+    <!-- Service -->
+    <string name="service_title">正在生成图像</string>
+    <string name="service_text">已等待 %1$d 秒，请稍候…</string>
+    <string name="service_done_title">生成完成</string>
+    <string name="service_failed_title">生成失败</string>
+
+    <!-- Misc -->
+    <string name="save_to_gallery">保存到相册</string>
+    <string name="share">分享</string>
+    <string name="regenerate">重新生成</string>
+    <string name="reuse_prompt">复用提示词</string>
+    <string name="empty_history">还没有生成记录</string>
+    <string name="empty_favorites">还没有收藏的提示词</string>
+    <string name="empty_styles">无可用风格</string>
+
+    <!-- KeepAlive -->
+    <string name="nav_keepalive">保活</string>
+    <string name="keepalive_title">后台保活</string>
+    <string name="keepalive_subtitle">为保障后台生成不中断，请按提示开启权限</string>
+    <string name="keepalive_open">前往开启</string>
+    <string name="keepalive_already">已开启</string>
+    <string name="keepalive_battery">电池优化</string>
+    <string name="keepalive_autostart">自启动</string>
+    <string name="keepalive_background">后台运行</string>
+    <string name="keepalive_notification">通知权限</string>
+
+    <!-- Channels -->
+    <string name="channel_generation">生成进度</string>
+    <string name="channel_result">生成结果</string>
+</resources>

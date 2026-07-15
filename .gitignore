@@ -1,0 +1,15 @@
+# Build artifacts
+.gradle/
+build/
+.idea/
+local.properties
+*.iml
+.DS_Store
+
+# Keystore - 全部忽略（密钥保存在 GitHub Secrets, 本地开发可放 signing/ 目录）
+*.jks
+*.keystore
+signing/
+
+# Native files
+.cxx/
