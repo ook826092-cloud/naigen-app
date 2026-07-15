@@ -166,7 +166,8 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: apk-${{ needs.bump-version.outputs.version_name }}
+          # artifact name 不能含 /，所以用纯数字 build_number
+          name: apk-${{ needs.bump-version.outputs.build_number }}
           path: artifacts/*
           retention-days: 30
 
