@@ -62,6 +62,7 @@ class GenerationService : Service() {
             return START_NOT_STICKY
         }
 
+        com.naigen.app.util.AppLog.i("GenService", "onStartCommand: variants=$variants styleKey=$styleKey")
         val prompt = intent.getStringExtra(EXTRA_PROMPT) ?: run {
             stopSelf()
             return START_NOT_STICKY
@@ -137,6 +138,7 @@ class GenerationService : Service() {
      * 单张生成完成后的处理。
      */
     private suspend fun finishWith(req: GenRequest, result: com.naigen.app.data.model.GenResult) {
+        com.naigen.app.util.AppLog.i("GenService", "finishWith: success=${result.success} time=${result.generationTimeMs}ms")
         persistResult(req, result)
         GenerationBus.publishResults(listOf(result))
         if (result.success) {

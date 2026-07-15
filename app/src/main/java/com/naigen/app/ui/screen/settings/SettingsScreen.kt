@@ -53,62 +53,62 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel(), nav: NavController) {
         )
 
         // ── API ──
-        SettingsGroup(title = "API") {
+        SettingsGroup(title = stringResource(R.string.settings_api)) {
             SettingRow(
                 icon = Icons.Outlined.Key,
-                title = "API 服务商",
-                subtitle = if (state.token.isBlank()) "Nai2API · 未配置 Token" else "Nai2API · 已配置 (${state.token.take(8)}…)",
+                title = stringResource(R.string.settings_api_provider),
+                subtitle = if (state.token.isBlank()) stringResource(R.string.settings_api_not_configured) else stringResource(R.string.settings_api_configured, state.token.take(8)),
                 isLast = true,
                 onClick = { nav.navigate(SubDest.ApiConfig.route) }
             )
         }
 
         // ── 风格 ──
-        SettingsGroup(title = "画风") {
+        SettingsGroup(title = stringResource(R.string.settings_style)) {
             SettingRow(
                 icon = Icons.Outlined.Palette,
-                title = "风格管理",
-                subtitle = "内置 7 + 社区 29 + 自定义",
+                title = stringResource(R.string.settings_style_manager),
+                subtitle = stringResource(R.string.settings_style_subtitle),
                 isLast = true,
                 onClick = { nav.navigate(SubDest.StyleManager.route) }
             )
         }
 
         // ── 性能 ──
-        SettingsGroup(title = "性能") {
+        SettingsGroup(title = stringResource(R.string.settings_perf)) {
             SettingRow(
                 icon = Icons.Outlined.Shield,
-                title = "后台保活",
-                subtitle = "厂商识别 + 自启动配置",
+                title = stringResource(R.string.settings_keepalive),
+                subtitle = stringResource(R.string.settings_keepalive_subtitle),
                 isLast = true,
                 onClick = { nav.navigate(SubDest.KeepAlive.route) }
             )
         }
 
         // ── 关于 ──
-        SettingsGroup(title = "关于") {
+        SettingsGroup(title = stringResource(R.string.settings_about_group)) {
             SettingRow(
                 icon = Icons.Outlined.Public,
-                title = "语言",
-                subtitle = "App 界面语言（7 种）",
+                title = stringResource(R.string.settings_language),
+                subtitle = stringResource(R.string.settings_language_subtitle),
                 onClick = { nav.navigate(SubDest.Language.route) }
             )
             SettingRow(
                 icon = Icons.Outlined.Description,
-                title = "应用日志",
-                subtitle = "查看运行日志和网络请求",
+                title = stringResource(R.string.settings_logs),
+                subtitle = stringResource(R.string.settings_logs_subtitle),
                 onClick = { nav.navigate(SubDest.Logs.route) }
             )
             SettingRow(
                 icon = Icons.Outlined.Info,
-                title = "关于本应用",
-                subtitle = "版本、源码、隐私政策",
+                title = stringResource(R.string.settings_about_app),
+                subtitle = stringResource(R.string.settings_about_subtitle),
                 onClick = { nav.navigate(SubDest.About.route) }
             )
             SettingRow(
                 icon = Icons.Outlined.MenuBook,
-                title = "说明文档",
-                subtitle = "GitHub 仓库 README（7 种语言）",
+                title = stringResource(R.string.settings_docs),
+                subtitle = stringResource(R.string.settings_docs_subtitle),
                 isLast = true,
                 onClick = { nav.navigate(SubDest.Docs.route) }
             )

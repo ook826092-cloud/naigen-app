@@ -202,6 +202,7 @@ jobs:
           BUILD="${{ needs.bump-version.outputs.build_number }}"
           SEMVER="${{ needs.bump-version.outputs.semver }}"
           CODE="${{ needs.bump-version.outputs.version_code }}"
+          DISPLAY_BUILD=$((BUILD - 20000))
           # tag 用 v{SEMVER} 格式（标准 SemVer tag）
           TAG="v${SEMVER}"
 
@@ -216,7 +217,7 @@ jobs:
           # NaiGen v${SEMVER}
 
           **版本号**：v${SEMVER}  （versionCode=${CODE}）
-          **构建号**：第 ${BUILD} 次构建（仅显示用，安卓系统识别的是 SemVer）
+          **构建号**：第 ${DISPLAY_BUILD} 次构建（仅显示用，安卓系统识别的是 SemVer）
           **构建时间**：$(date -u '+%Y-%m-%d %H:%M:%S UTC')
           **提交**：${{ github.sha }}
 
@@ -224,7 +225,7 @@ jobs:
 
           - **versionName**（安卓系统识别）：\`${SEMVER}\` —— 例如 \`2.2.0\`
           - **versionCode**（升级判定）：\`${CODE}\` —— 例如 \`20200\`
-          - **构建号**（关于页显示）：\`${BUILD}\` —— 累计构建次数
+          - **构建号**（关于页显示）：\`${DISPLAY_BUILD}\` —— 累计构建次数
 
           SemVer 逢 9 自动进位：2.1.9 → 2.2.0，2.9.9 → 3.0.0
 

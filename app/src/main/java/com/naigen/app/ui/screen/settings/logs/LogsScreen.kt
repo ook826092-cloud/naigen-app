@@ -159,10 +159,20 @@ fun LogsScreen(nav: NavController) {
                                 logFile = logFile,
                                 onClick = { selectedFile = logFile.name },
                                 onShare = {
-                                    val text = AppLog.getLogFileContent(logFile.name)
-                                    val cm = ctx.getSystemService(android.content.ClipboardManager::class.java)
-                                    cm?.setPrimaryClip(android.content.ClipData.newPlainText(logFile.name, text))
-                                    scope.launch { snackbarHostState.showSnackbar("已复制 ${logFile.name}") }
+                                    // 用真正的系统分享 Intent
+                                    val file = logFile.file
+                                    val uri = androidx.core.content.FileProvider.getUriForFile(
+                                        ctx,
+                                        "${ctx.packageName}.fileprovider",
+                                        file
+                                    )
+                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                        putExtra(Intent.EXTRA_SUBJECT, logFile.name)
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    ctx.startActivity(Intent.createChooser(shareIntent, "分享日志文件"))
                                 },
                                 onDelete = {
                                     AppLog.deleteFile(logFile.name)
@@ -379,6 +389,7 @@ private fun LogFileCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AutoDeleteSettingsDialog(
     maxAgeHours: Int,
@@ -388,10 +399,10 @@ private fun AutoDeleteSettingsDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val ageOptions = listOf(0 to "不按时间", 1 to "1 小时", 2 to "2 小时", 12 to "12 小时", 24 to "24 小时", 168 to "7 天", 336 to "14 天", 720 to "30 天")
-    val sizeOptions = listOf(0 to "不按大小", 200 to "200 MB", 500 to "500 MB", 1024 to "1 GB", 2048 to "2 GB")
-    var ageExpanded by remember { mutableStateOf(false) }
-    var sizeExpanded by remember { mutableStateOf(false) }
+    val ageValues = listOf(0, 1, 2, 12, 24, 168, 336, 720)
+    val ageLabels = listOf("不按时间", "1 小时", "2 小时", "12 小时", "24 小时", "7 天", "14 天", "30 天")
+    val sizeValues = listOf(0, 200, 500, 1024, 2048)
+    val sizeLabels = listOf("不按大小", "200 MB", "500 MB", "1 GB", "2 GB")
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -400,39 +411,23 @@ private fun AutoDeleteSettingsDialog(
             Column {
                 Text("时间逻辑", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
-                Box {
-                    OutlinedTextField(
-                        value = ageOptions.find { it.first == maxAgeHours }?.second ?: "自定义",
-                        onValueChange = { },
-                        readOnly = true,
-                        modifier = Modifier.fillMaxWidth().clickable { ageExpanded = true },
-                        trailingIcon = { Icon(Icons.Outlined.ArrowDropDown, contentDescription = null) }
-                    )
-                    DropdownMenu(expanded = ageExpanded, onDismissRequest = { ageExpanded = false }) {
-                        ageOptions.forEach { (v, label) ->
-                            DropdownMenuItem(text = { Text(label) }, onClick = { onAgeChange(v); ageExpanded = false })
-                        }
-                    }
-                }
+                com.naigen.app.ui.components.DropdownSelector(
+                    label = "保留时间",
+                    options = ageLabels,
+                    selectedIndex = ageValues.indexOf(maxAgeHours).coerceAtLeast(0),
+                    onSelected = { idx -> onAgeChange(ageValues[idx]) }
+                )
 
                 Spacer(Modifier.height(12.dp))
 
                 Text("存储逻辑", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
-                Box {
-                    OutlinedTextField(
-                        value = sizeOptions.find { it.first == maxSizeMB }?.second ?: "自定义",
-                        onValueChange = { },
-                        readOnly = true,
-                        modifier = Modifier.fillMaxWidth().clickable { sizeExpanded = true },
-                        trailingIcon = { Icon(Icons.Outlined.ArrowDropDown, contentDescription = null) }
-                    )
-                    DropdownMenu(expanded = sizeExpanded, onDismissRequest = { sizeExpanded = false }) {
-                        sizeOptions.forEach { (v, label) ->
-                            DropdownMenuItem(text = { Text(label) }, onClick = { onSizeChange(v); sizeExpanded = false })
-                        }
-                    }
-                }
+                com.naigen.app.ui.components.DropdownSelector(
+                    label = "最大存储",
+                    options = sizeLabels,
+                    selectedIndex = sizeValues.indexOf(maxSizeMB).coerceAtLeast(0),
+                    onSelected = { idx -> onSizeChange(sizeValues[idx]) }
+                )
 
                 Spacer(Modifier.height(8.dp))
                 Text(

@@ -125,6 +125,7 @@ class GenerateViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun generate() {
+        com.naigen.app.util.AppLog.d("GenVM", "generate() called, prompt=${current.prompt.take(50)}, styleKey=${current.styleKey}")
         val current = _input.value
         if (GenerationBus.isRunning.value) return
         if (current.prompt.isBlank()) {
@@ -151,6 +152,7 @@ class GenerateViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun cancel() {
+        com.naigen.app.util.AppLog.w("GenVM", "cancel() called")
         GenerationService.stop(getApplication())
         GenerationBus.markFinished()
         _toast.value = "已取消"

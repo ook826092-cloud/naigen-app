@@ -103,6 +103,7 @@ object NaiApiClient {
 
     /** GET /api/jobs/:id?token=... */
     suspend fun pollJob(baseUrl: String, jobId: String, token: String): JobStatusResponse =
+        // 日志在 withContext 内部
         withContext(Dispatchers.IO) {
             val req = Request.Builder()
                 .url("${baseUrl.trimEnd('/')}/api/jobs/$jobId?token=${token.encodeUrl()}")
@@ -147,6 +148,7 @@ object NaiApiClient {
      * 兼容 imageUrl 既可能以 http 开头也可能以 / 开头的两种格式。
      */
     suspend fun downloadImage(baseUrl: String, imageUrl: String): ByteArray? =
+        // 日志在 withContext 内部
         withContext(Dispatchers.IO) {
             val fullUrl = if (imageUrl.startsWith("http")) {
                 imageUrl

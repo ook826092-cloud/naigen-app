@@ -99,14 +99,56 @@ fun AppNavGraph() {
             composable(Dest.Album.route) { AlbumScreen() }
             composable(Dest.Settings.route) { SettingsScreen(nav = nav) }
 
-            // ── 设置子页面 ──
-            composable(SubDest.ApiConfig.route) { ApiConfigScreen(nav = nav) }
-            composable(SubDest.StyleManager.route) { StyleManagerScreen(nav = nav) }
-            composable(SubDest.KeepAlive.route) { KeepAliveScreen(nav = nav) }
-            composable(SubDest.Language.route) { LanguageScreen(nav = nav) }
-            composable(SubDest.Logs.route) { LogsScreen(nav = nav) }
-            composable(SubDest.About.route) { AboutScreen(nav = nav) }
-            composable(SubDest.Docs.route) { DocsScreen(nav = nav) }
+            // ── 设置子页面（带滑入动画）──
+            composable(
+                SubDest.ApiConfig.route,
+                enterTransition = { androidx.compose.animation.slideInHorizontally { it } },
+                exitTransition = { androidx.compose.animation.slideOutHorizontally { -it / 3 } },
+                popEnterTransition = { androidx.compose.animation.slideInHorizontally { -it / 3 } },
+                popExitTransition = { androidx.compose.animation.slideOutHorizontally { it } }
+            ) { ApiConfigScreen(nav = nav) }
+            composable(
+                SubDest.StyleManager.route,
+                enterTransition = { androidx.compose.animation.slideInHorizontally { it } },
+                exitTransition = { androidx.compose.animation.slideOutHorizontally { -it / 3 } },
+                popEnterTransition = { androidx.compose.animation.slideInHorizontally { -it / 3 } },
+                popExitTransition = { androidx.compose.animation.slideOutHorizontally { it } }
+            ) { StyleManagerScreen(nav = nav) }
+            composable(
+                SubDest.KeepAlive.route,
+                enterTransition = { androidx.compose.animation.slideInHorizontally { it } },
+                exitTransition = { androidx.compose.animation.slideOutHorizontally { -it / 3 } },
+                popEnterTransition = { androidx.compose.animation.slideInHorizontally { -it / 3 } },
+                popExitTransition = { androidx.compose.animation.slideOutHorizontally { it } }
+            ) { KeepAliveScreen(nav = nav) }
+            composable(
+                SubDest.Language.route,
+                enterTransition = { androidx.compose.animation.slideInHorizontally { it } },
+                exitTransition = { androidx.compose.animation.slideOutHorizontally { -it / 3 } },
+                popEnterTransition = { androidx.compose.animation.slideInHorizontally { -it / 3 } },
+                popExitTransition = { androidx.compose.animation.slideOutHorizontally { it } }
+            ) { LanguageScreen(nav = nav) }
+            composable(
+                SubDest.Logs.route,
+                enterTransition = { androidx.compose.animation.slideInHorizontally { it } },
+                exitTransition = { androidx.compose.animation.slideOutHorizontally { -it / 3 } },
+                popEnterTransition = { androidx.compose.animation.slideInHorizontally { -it / 3 } },
+                popExitTransition = { androidx.compose.animation.slideOutHorizontally { it } }
+            ) { LogsScreen(nav = nav) }
+            composable(
+                SubDest.About.route,
+                enterTransition = { androidx.compose.animation.slideInHorizontally { it } },
+                exitTransition = { androidx.compose.animation.slideOutHorizontally { -it / 3 } },
+                popEnterTransition = { androidx.compose.animation.slideInHorizontally { -it / 3 } },
+                popExitTransition = { androidx.compose.animation.slideOutHorizontally { it } }
+            ) { AboutScreen(nav = nav) }
+            composable(
+                SubDest.Docs.route,
+                enterTransition = { androidx.compose.animation.slideInHorizontally { it } },
+                exitTransition = { androidx.compose.animation.slideOutHorizontally { -it / 3 } },
+                popEnterTransition = { androidx.compose.animation.slideInHorizontally { -it / 3 } },
+                popExitTransition = { androidx.compose.animation.slideOutHorizontally { it } }
+            ) { DocsScreen(nav = nav) }
         }
     }
 }

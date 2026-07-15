@@ -63,9 +63,11 @@ class NaiRepository(
         onProgress: (GenProgress) -> Unit = {}
     ): GenResult = coroutineScope {
         val token = settings.token.first()
+        com.naigen.app.util.AppLog.d("NaiRepo", "generate() called, styleKey=$styleKey sizeKey=${request.sizeKey}")
         val baseUrl = settings.baseUrl.first()
 
         if (token.isBlank()) {
+            com.naigen.app.util.AppLog.w("NaiRepo", "Token is blank, aborting")
             return@coroutineScope GenResult(
                 success = false,
                 styleKey = request.styleKey,
