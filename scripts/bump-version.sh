@@ -122,9 +122,10 @@ if [[ "${1:-}" == "--commit" ]]; then
     git add version.properties
     git commit -m "chore(release): bump to ${NEW_VERSION_NAME} [skip ci]"
     if [[ -n "${GITHUB_TOKEN:-}" ]]; then
-        # 用 --force 避免与并发 push 冲突
-        # HEAD 是 detached（actions/checkout 创建），所以用 HEAD:refs/heads/main
-        git push --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/${GITHUB_REF_NAME:-main}"
+        # 普通 push，绝不 --force —— 避免覆盖 main 上他人的提交。
+        # checkout 拿到的是最新 main（fetch-depth:0 + ref:main），正常不会冲突；
+        # 若因极罕见并发导致 reject，让其失败上报而非强推覆盖。
+        git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/${GITHUB_REF_NAME:-main}"
     else
         git push
     fi

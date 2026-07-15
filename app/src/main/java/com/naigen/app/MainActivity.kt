@@ -38,6 +38,7 @@ class MainActivity : AppCompatActivity() {
         setContent {
             val app = application as NaiApplication
             val themeKey by app.settingsStore.themeMode.collectAsState(initial = "system")
+            val dynamicColor by app.settingsStore.dynamicColor.collectAsState(initial = true)
             val themeMode = ThemeMode.fromKey(themeKey)
 
             // 同步给 AppCompatDelegate（影响 Activity 重建时的主题）
@@ -47,7 +48,7 @@ class MainActivity : AppCompatActivity() {
                 ThemeMode.DARK -> true
             }
 
-            NaiTheme(darkTheme = darkTheme) {
+            NaiTheme(darkTheme = darkTheme, dynamicColor = dynamicColor) {
                 Surface(
                     modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
                     color = MaterialTheme.colorScheme.background

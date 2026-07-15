@@ -33,6 +33,7 @@ class SettingsStore(private val context: Context) {
         val LAST_NEGATIVE = stringPreferencesKey("last_negative")
         val NSFW_ENABLED = stringPreferencesKey("nsfw_enabled")
         val THEME_MODE = stringPreferencesKey("theme_mode")  // "system" / "light" / "dark"
+        val DYNAMIC_COLOR = stringPreferencesKey("dynamic_color")  // "1" 启用动态配色(默认)
     }
 
     val baseUrl: Flow<String> = context.dataStore.data.map { it[Keys.BASE_URL] ?: DEFAULT_BASE_URL }
@@ -43,6 +44,7 @@ class SettingsStore(private val context: Context) {
     val lastNegative: Flow<String> = context.dataStore.data.map { it[Keys.LAST_NEGATIVE] ?: "" }
     val nsfwEnabled: Flow<Boolean> = context.dataStore.data.map { it[Keys.NSFW_ENABLED] == "1" }
     val themeMode: Flow<String> = context.dataStore.data.map { it[Keys.THEME_MODE] ?: "system" }
+    val dynamicColor: Flow<Boolean> = context.dataStore.data.map { it[Keys.DYNAMIC_COLOR] != "0" }
 
     suspend fun setToken(value: String) = context.dataStore.edit { it[Keys.TOKEN] = value.trim() }
     suspend fun setBaseUrl(value: String) = context.dataStore.edit { it[Keys.BASE_URL] = value.trim() }
@@ -53,6 +55,9 @@ class SettingsStore(private val context: Context) {
     suspend fun setLastNegative(value: String) = context.dataStore.edit { it[Keys.LAST_NEGATIVE] = value }
     suspend fun setNsfwEnabled(value: Boolean) =
         context.dataStore.edit { it[Keys.NSFW_ENABLED] = if (value) "1" else "0" }
+
+    suspend fun setDynamicColor(enabled: Boolean) =
+        context.dataStore.edit { it[Keys.DYNAMIC_COLOR] = if (enabled) "1" else "0" }
 
     companion object {
         const val DEFAULT_BASE_URL = "https://nai.sta1n.cn"

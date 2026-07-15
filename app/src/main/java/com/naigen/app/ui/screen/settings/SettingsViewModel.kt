@@ -16,21 +16,23 @@ data class SettingsUiState(
     val baseUrl: String = SettingsStore.DEFAULT_BASE_URL,
     val nsfwEnabled: Boolean = false,
     val lastStyleKey: String = "2.5d",
-    val themeMode: String = "system"
+    val themeMode: String = "system",
+    val dynamicColor: Boolean = true
 )
 
 class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     private val settings: SettingsStore = getApplication<NaiApplication>().settingsStore
 
     val state: StateFlow<SettingsUiState> = combine(
-        settings.token, settings.baseUrl, settings.nsfwEnabled, settings.lastStyle, settings.themeMode
-    ) { token, baseUrl, nsfwEnabled, lastStyle, themeMode ->
+        settings.token, settings.baseUrl, settings.nsfwEnabled, settings.lastStyle, settings.themeMode, settings.dynamicColor
+    ) { token, baseUrl, nsfwEnabled, lastStyle, themeMode, dynamicColor ->
         SettingsUiState(
             token = token,
             baseUrl = baseUrl,
             nsfwEnabled = nsfwEnabled,
             lastStyleKey = lastStyle,
-            themeMode = themeMode
+            themeMode = themeMode,
+            dynamicColor = dynamicColor
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, SettingsUiState())
 
@@ -38,4 +40,5 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     fun setBaseUrl(v: String) = viewModelScope.launch { settings.setBaseUrl(v) }
     fun setNsfw(v: Boolean) = viewModelScope.launch { settings.setNsfwEnabled(v) }
     fun setThemeMode(v: String) = viewModelScope.launch { settings.setThemeMode(v) }
+    fun setDynamicColor(v: Boolean) = viewModelScope.launch { settings.setDynamicColor(v) }
 }

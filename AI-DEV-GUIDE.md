@@ -9,7 +9,7 @@
 
 ## 1. 项目概述
 
-**NaiGen** 是一个 Android 原生 Kotlin 应用，基于 Nai2API 文生图教程实现。
+**NaiGen** 是一个 Android 原生 Kotlin 应用，基于 Nai2API 文生图教程思路实现（实际调用 nai.sta1n.cn 服务）。
 
 - **仓库**：https://github.com/ook826092-cloud/naigen-app
 - **可见性**：公开
@@ -19,7 +19,7 @@
 - **后端**：完全用 Android 原生方式实现（OkHttp + Coroutines + Room + DataStore），**不依赖 Python / 任何外部服务器**
 
 ### 核心功能
-- 调用 Nai2API（https://nai.sta1n.cn）的 Job 异步文生图
+- 调用 nai.sta1n.cn 的 Job 异步文生图
 - 7 个内置画风预设 + 29 个社区风格（NovelAI Diffusion 4.5 真实画师串）
 - 自定义风格（Room 持久化）
 - 9 大厂商识别 + 后台保活引导（小米/红米/vivo/iQOO 分开）

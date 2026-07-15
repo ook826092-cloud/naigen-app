@@ -239,19 +239,29 @@ class GenerationService : Service() {
     }
 
     /**
-     * 实时进度通知 —— 适配各厂商灵动岛/超级岛/原子岛。
+     * 实时进度通知 —— 适配各厂商「灵动岛」类能力（小米超级岛 / OPPO 流体云 /
+     * vivo 原子岛 / 荣耀 / 魅族等）。
      *
-     * 关键点：
-     *   1. setLocusId — Android 12+ 用于关联通知到"场景"，各厂商岛功能靠此识别
-     *   2. setCategory(Notification.CATEGORY_PROGRESS) — 标记为进度通知
-     *   3. setOngoing(true) — 持续通知，不会被滑动清除
-     *   4. setProgress — 进度条，各厂商岛会展示
-     *   5. setShortCriticalText — Android 15+ 短文本，岛展示用（如果支持）
-     *   6. setFlag(Notification.FLAG_ONGOING_EVENT) — 确保持续
+     * 设计原则（参考 Android 官方「实时更新通知」指南）：
+     *   - 各厂商的岛实现五花八门，且**自定义 RemoteViews / 私有 extra 在不同
+     *     Android 版本和厂商间行为差异极大、难以稳定**。因此主路径坚持用
+     *     **标准 Android 进度通知规范**，让各厂商自己去识别呈现，兼容性最好、
+     *     老安卓也能降级为普通进度通知。
+     *   - 标准字段：ongoing + CATEGORY_PROGRESS + setProgress + LocusId(S+) +
+     *     FOREGROUND_SERVICE_IMMEDIATE。这套是 Google 官方「ongoing progress」
+     *     规范，小米/OPPO/vivo/荣耀均会据此在状态栏/焦点区/岛上展示。
      *
-     * 小米超级岛：识别 ongoing + category=progress 的通知
-     * OPPO 灵动岛：识别 ongoing + 有 LocusId 的通知
-     * vivo 原子岛：识别 ongoing + category=progress 的通知
+     * 厂商私有扩展（谨慎使用）：
+     *   - 小米澎湃OS3+ 的「超级岛」真正上岛需要结构化的 `miui.focus.param`
+     *     JSON（官方协议），而非社区流传的 `miui.flags_*` 字符串。这里在
+     *     OS3+ 尝试放置一个最小化 `miui.focus.param`（仅声明小岛文本），
+     *     失败则静默忽略——绝不影响标准通知本身。
+     *   - 老版本 Android / 其他厂商：完全走标准字段，不塞任何私有 extra。
+     *
+     * Android 15 / 16 前台服务规范：
+     *   - 必须在 Manifest 声明 foregroundServiceType（已声明 dataSync）。
+     *   - 启动后必须 6 秒内显示通知（Android 16 强制），IMMEDIATE 行为保证。
+     *   - 本 Service 用带 type 重载的 startForeground（见 startForegroundCompat）。
      */
     private fun buildProgressNotification(text: String, current: Int, total: Int): Notification {
         val pi = PendingIntent.getActivity(
@@ -268,24 +278,39 @@ class GenerationService : Service() {
             .setSmallIcon(R.drawable.ic_app_placeholder)
             .setOngoing(true)
             .setContentIntent(pi)
-            .setProgress(total, current, indeterminate)
+            .setProgress(total, current.coerceAtMost(total.coerceAtLeast(0)), indeterminate)
             .setOnlyAlertOnce(true)
             .setSilent(true)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
 
-        // Android 12+ 加 LocusId（各厂商岛功能靠此识别）
         val notification = builder.build()
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+
+        // Android 12+（S）加 LocusId：各厂商岛/焦点区识别持续场景的标准字段
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             try {
                 notification.extras.putString("android.locusId", "naigen_generation")
-                // 小米/红米超级岛: 需要 ongoing + category=progress + 额外标记
-                notification.extras.putBoolean("miui.flags_is_foreground_service", true)
-                notification.extras.putString("miui.flags_progress_title", "NaiGen")
-                notification.extras.putString("miui.flags_progress_content", text)
-                // OPPO/vivo 灵动岛: locusId + ongoing
-            } catch (_: Throwable) {}
+
+                // 小米澎湃OS3+ 超级岛：官方 `miui.focus.param` 最小化协议。
+                // 仅声明 business + 小岛文本，让进度在岛/焦点区可见。
+                // 非小米 / 非 OS3 设备忽略此 extra 无副作用；写入失败也静默忽略。
+                val focusParam = org.json.JSONObject().apply {
+                    put("business", "naigen_generation")
+                    put("ticker", text)
+                    put("protocol", 3)
+                    put("param_island", org.json.JSONObject().apply {
+                        put("bigIslandArea", org.json.JSONObject().apply { put("text", text) })
+                        put("smallIslandArea", org.json.JSONObject().apply { put("text", "NaiGen") })
+                    })
+                }.toString()
+                notification.extras.putString("miui.focus.param", focusParam)
+
+                // OPPO 流体云 / vivo 原子岛 / 荣耀：识别 ongoing + category=progress + LocusId，
+                // 无需私有 extra，标准字段已足够（见方法注释顶部）。
+            } catch (_: Throwable) {
+                // 任何私有 extra 写入失败都静默忽略，绝不影响标准通知
+            }
         }
 
         return notification

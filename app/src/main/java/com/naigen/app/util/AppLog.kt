@@ -82,7 +82,7 @@ object AppLog {
      *   - JSON body：  "token":"STA1N-xxxx"     → "token":"***REDACTED***"
      * 仅做展示/落盘前的遮蔽，不影响真实网络请求。
      */
-    private fun redactToken(raw: String): String {
+    internal fun redactToken(raw: String): String {
         if (raw.isEmpty()) return raw
         return raw
             .replace(Regex("([?&]token=)[^&#\\s\"]+"), "$1***REDACTED***")
