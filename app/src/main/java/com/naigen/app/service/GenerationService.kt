@@ -238,8 +238,19 @@ class GenerationService : Service() {
     }
 
     /**
-     * 实时进度通知。Android 16 (API 36) 起支持 Notification.ProgressStyle（如可用），
-     * 这里统一用 NotificationCompat.Builder + setProgress(max, current, indeterminate)。
+     * 实时进度通知 —— 适配各厂商灵动岛/超级岛/原子岛。
+     *
+     * 关键点：
+     *   1. setLocusId — Android 12+ 用于关联通知到"场景"，各厂商岛功能靠此识别
+     *   2. setCategory(Notification.CATEGORY_PROGRESS) — 标记为进度通知
+     *   3. setOngoing(true) — 持续通知，不会被滑动清除
+     *   4. setProgress — 进度条，各厂商岛会展示
+     *   5. setShortCriticalText — Android 15+ 短文本，岛展示用（如果支持）
+     *   6. setFlag(Notification.FLAG_ONGOING_EVENT) — 确保持续
+     *
+     * 小米超级岛：识别 ongoing + category=progress 的通知
+     * OPPO 灵动岛：识别 ongoing + 有 LocusId 的通知
+     * vivo 原子岛：识别 ongoing + category=progress 的通知
      */
     private fun buildProgressNotification(text: String, current: Int, total: Int): Notification {
         val pi = PendingIntent.getActivity(
@@ -250,8 +261,8 @@ class GenerationService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         val indeterminate = current <= 0
-        return NotificationCompat.Builder(this, NaiApplication.CHANNEL_GENERATION)
-            .setContentTitle("正在生成图像")
+        val builder = NotificationCompat.Builder(this, NaiApplication.CHANNEL_GENERATION)
+            .setContentTitle("NaiGen")
             .setContentText(text)
             .setSmallIcon(R.drawable.ic_app_placeholder)
             .setOngoing(true)
@@ -261,7 +272,17 @@ class GenerationService : Service() {
             .setSilent(true)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+
+        // Android 12+ 加 LocusId（各厂商岛功能靠此识别）
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            try {
+                val locusId = androidx.core.app.LocusIdCompat("naigen_generation")
+                builder.setLocusId(locusId)
+            } catch (_: Throwable) {}
+        }
+
+        return builder.build()
     }
 
     private fun updateProgress(text: String, current: Int) {

@@ -218,11 +218,29 @@ object AppLog {
             Level.WARN -> "W"
             Level.ERROR -> "E"
         }
-        val sb = StringBuilder("[$time] $lv/${entry.tag}: ${entry.message}")
+        val sb = StringBuilder()
+        sb.append("[$time] [$lv] ${entry.message}")
         entry.throwable?.let { t ->
-            sb.append("\n")
-            val sw = StringWriter(); val pw = PrintWriter(sw); t.printStackTrace(pw)
-            sb.append(sw.toString().trim())
+            sb.append("\n[$time] [Uncaught] ${t.javaClass.simpleName}: ${t.message}")
+            // Stack trace with #1 #2 #3 numbering
+            val elements = t.stackTrace
+            for ((idx, element) in elements.withIndex()) {
+                val num = idx + 1
+                sb.append("\n[$time] [Uncaught] #$num      ${element.className}.${element.methodName} (${element.fileName}:${element.lineNumber})")
+            }
+            // Cause chain
+            var cause = t.cause
+            var causeIdx = 0
+            while (cause != null) {
+                causeIdx++
+                sb.append("\n[$time] [Uncaught] Caused by: ${cause.javaClass.simpleName}: ${cause.message}")
+                for ((idx, element) in cause.stackTrace.withIndex()) {
+                    val num = idx + 1
+                    sb.append("\n[$time] [Uncaught] #$num      ${element.className}.${element.methodName} (${element.fileName}:${element.lineNumber})")
+                }
+                cause = cause.cause
+                if (causeIdx > 10) break  // 防止无限循环
+            }
         }
         return sb.toString()
     }
