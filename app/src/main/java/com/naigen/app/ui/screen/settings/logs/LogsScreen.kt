@@ -40,12 +40,12 @@ fun LogsScreen(nav: NavController) {
     var appFiles by remember { mutableStateOf(AppLog.getAppFiles()) }
     var networkEntries by remember { mutableStateOf(AppLog.getNetworkEntries()) }
 
-    var detailFile by remember { mutableStateOf<Pair<String, Boolean>?>>(null) }
+    var detailFile: Pair<String, Boolean>? by remember { mutableStateOf(null) }
     var showCurrentLog by remember { mutableStateOf(false) }
-    var detailNetwork by remember { mutableStateOf<AppLog.NetworkEntry?>(null) }
-    var longPressFile by remember { mutableStateOf<Pair<String, Boolean>?>>(null) }
+    var detailNetwork: AppLog.NetworkEntry? by remember { mutableStateOf(null) }
+    var longPressFile: Pair<String, Boolean>? by remember { mutableStateOf(null) }
     var longPressCurrent by remember { mutableStateOf(false) }
-    var longPressNetwork by remember { mutableStateOf<AppLog.NetworkEntry?>(null) }
+    var longPressNetwork: AppLog.NetworkEntry? by remember { mutableStateOf(null) }
 
     // 详情页覆盖
     if (showCurrentLog) {
