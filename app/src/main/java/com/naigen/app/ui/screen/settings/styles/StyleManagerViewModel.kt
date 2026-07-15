@@ -36,13 +36,7 @@ class StyleManagerViewModel(app: Application) : AndroidViewModel(app) {
 
     val state: StateFlow<StyleManagerState> = combine(
         _selected, _nsfw, _query, customRepo.observeAsPresets()
-    ) { values ->
-        @Suppress("UNCHECKED_CAST")
-        val selected = values[0] as String
-        val nsfw = values[1] as Boolean
-        val query = values[2] as String
-        val customs = values[3] as List<StylePreset>
-
+    ) { selected, nsfw, query, customs ->
         val merged = StyleRegistry.mergedWith(customs)
         StyleManagerState(
             selectedKey = selected,

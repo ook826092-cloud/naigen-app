@@ -23,13 +23,12 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     val state: StateFlow<SettingsUiState> = combine(
         settings.token, settings.baseUrl, settings.nsfwEnabled, settings.lastStyle
-    ) { values ->
-        @Suppress("UNCHECKED_CAST")
+    ) { token, baseUrl, nsfwEnabled, lastStyle ->
         SettingsUiState(
-            token = values[0] as String,
-            baseUrl = values[1] as String,
-            nsfwEnabled = values[2] as Boolean,
-            lastStyleKey = values[3] as String
+            token = token,
+            baseUrl = baseUrl,
+            nsfwEnabled = nsfwEnabled,
+            lastStyleKey = lastStyle
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, SettingsUiState())
 

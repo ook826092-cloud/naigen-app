@@ -9,21 +9,31 @@ plugins {
 }
 
 // ── 从 version.properties 读取版本号（单一来源）───────────────────────────
-// 工作流 push 到 main 时会调 scripts/bump-version.sh 自增 PATCH
-data class VersionTriple(val major: Int, val minor: Int, val patch: Int) {
-    val code: Int get() = major * 10000 + minor * 100 + patch
-    val name: String get() = "$major.$minor.$patch"
+// 双层版本号格式：BUILD_NUMBER / MAJOR.MINOR.PATCH
+//   - versionName = "BUILD_NUMBER/MAJOR.MINOR.PATCH"（例如 "15/2.1.0"）
+//   - versionCode = BUILD_NUMBER（单调递增）
+//   - SemVer 逢 9 进位（PATCH 9→MINOR+1，MINOR 9→MAJOR+1）
+data class AppVersion(
+    val buildNumber: Int,
+    val major: Int,
+    val minor: Int,
+    val patch: Int
+) {
+    val semver: String get() = "$major.$minor.$patch"
+    val versionName: String get() = "$buildNumber/$semver"
+    val versionCode: Int get() = buildNumber
 }
 
-val appVersion: VersionTriple = run {
+val appVersion: AppVersion = run {
     val f = rootProject.file("version.properties")
-    if (!f.exists()) return@run VersionTriple(1, 0, 0)
+    if (!f.exists()) return@run AppVersion(1, 1, 0, 0)
     val props = Properties()
     f.inputStream().use { props.load(it) }
-    VersionTriple(
-        major = (props.getProperty("VERSION_MAJOR") ?: "1").toInt(),
-        minor = (props.getProperty("VERSION_MINOR") ?: "0").toInt(),
-        patch = (props.getProperty("VERSION_PATCH") ?: "0").toInt()
+    AppVersion(
+        buildNumber = (props.getProperty("BUILD_NUMBER") ?: "1").toInt(),
+        major = (props.getProperty("MAJOR") ?: "1").toInt(),
+        minor = (props.getProperty("MINOR") ?: "0").toInt(),
+        patch = (props.getProperty("PATCH") ?: "0").toInt()
     )
 }
 
@@ -81,8 +91,8 @@ android {
         applicationId = "com.naigen.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = appVersion.code
-        versionName = appVersion.name
+        versionCode = appVersion.versionCode
+        versionName = appVersion.versionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

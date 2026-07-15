@@ -42,6 +42,8 @@ jobs:
     outputs:
       version_name: ${{ steps.read_version.outputs.VERSION_NAME }}
       version_code: ${{ steps.read_version.outputs.VERSION_CODE }}
+      build_number: ${{ steps.read_version.outputs.BUILD_NUMBER }}
+      semver: ${{ steps.read_version.outputs.SEMVER }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -54,7 +56,7 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Bump PATCH version +1
+      - name: Bump version (BUILD_NUMBER +1, SemVer 逢 9 进位)
         if: github.event_name != 'workflow_dispatch' || github.event.inputs.skip_bump != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -63,15 +65,19 @@ jobs:
       - name: Read final version
         id: read_version
         run: |
-          # 用 awk 读取，避免 source 解析 properties 出问题
-          MAJOR=$(awk -F= '/^VERSION_MAJOR=/{print $2}' version.properties)
-          MINOR=$(awk -F= '/^VERSION_MINOR=/{print $2}' version.properties)
-          PATCH=$(awk -F= '/^VERSION_PATCH=/{print $2}' version.properties)
-          NAME="${MAJOR}.${MINOR}.${PATCH}"
-          CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
-          echo "VERSION_NAME=$NAME" >> "$GITHUB_OUTPUT"
-          echo "VERSION_CODE=$CODE" >> "$GITHUB_OUTPUT"
-          echo "Final version: $NAME (code=$CODE)"
+          # 双层格式: BUILD_NUMBER / MAJOR.MINOR.PATCH
+          BUILD=$(awk -F= '/^BUILD_NUMBER=/{print $2}' version.properties)
+          MAJOR=$(awk -F= '/^MAJOR=/{print $2}' version.properties)
+          MINOR=$(awk -F= '/^MINOR=/{print $2}' version.properties)
+          PATCH=$(awk -F= '/^PATCH=/{print $2}' version.properties)
+          SEMVER="${MAJOR}.${MINOR}.${PATCH}"
+          NAME="${BUILD}/${SEMVER}"
+          CODE=$BUILD
+          echo "BUILD_NUMBER=$BUILD"     >> "$GITHUB_OUTPUT"
+          echo "SEMVER=$SEMVER"          >> "$GITHUB_OUTPUT"
+          echo "VERSION_NAME=$NAME"      >> "$GITHUB_OUTPUT"
+          echo "VERSION_CODE=$CODE"      >> "$GITHUB_OUTPUT"
+          echo "Final version: $NAME (versionCode=$CODE)"
 
   # ──────────────────────────────────────────────────────────────────────────
   # Job 2：拉最新代码 + 编译 Debug + Release APK
@@ -139,10 +145,13 @@ jobs:
       - name: Rename APK with version
         run: |
           mkdir -p artifacts
-          VER="${{ needs.bump-version.outputs.version_name }}"
+          BUILD="${{ needs.bump-version.outputs.build_number }}"
+          SEMVER="${{ needs.bump-version.outputs.semver }}"
           DATE=$(date +%Y%m%d)
+          # 文件名格式: NaiGen-{BUILD}-{SEMVER}-release-{DATE}.apk
+          # 例如: NaiGen-15-2.1.0-release-20260715.apk
           find app/build/outputs/apk/release -name "*.apk" -type f | while read -r apk; do
-            newname="NaiGen-v${VER}-release-${DATE}.apk"
+            newname="NaiGen-${BUILD}-${SEMVER}-release-${DATE}.apk"
             cp "$apk" "artifacts/$newname"
             echo "✓ $apk → artifacts/$newname"
           done
@@ -178,7 +187,7 @@ jobs:
       - name: Download APK artifacts
         uses: actions/download-artifact@v4
         with:
-          name: apk-${{ needs.bump-version.outputs.version_name }}
+          name: apk-${{ needs.bump-version.outputs.build_number }}
           path: artifacts
 
       - name: Verify artifacts
@@ -190,9 +199,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VER="${{ needs.bump-version.outputs.version_name }}"
+          BUILD="${{ needs.bump-version.outputs.build_number }}"
+          SEMVER="${{ needs.bump-version.outputs.semver }}"
+          NAME="${BUILD}/${SEMVER}"
           CODE="${{ needs.bump-version.outputs.version_code }}"
-          TAG="v${VER}"
+          # tag 用 build-N 格式，避免 SemVer 重置导致 tag 冲突
+          # （例如 build-100 之后 SemVer 重置过几次，但 BUILD_NUMBER 单调递增）
+          TAG="build-${BUILD}"
 
           # 检查 tag 是否已存在
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
@@ -202,11 +215,20 @@ jobs:
 
           # 生成 release notes
           cat > release-notes.md <<EOF
-          # NaiGen v${VER}
+          # NaiGen ${NAME}
 
-          **版本号**：${VER} (versionCode=${CODE})
+          **版本号**：${NAME}  （versionCode=${CODE}）
+          **正式版本（SemVer）**：${SEMVER}
+          **构建号**：第 ${BUILD} 次构建
           **构建时间**：$(date -u '+%Y-%m-%d %H:%M:%S UTC')
           **提交**：${{ github.sha }}
+
+          ## 版本号说明
+
+          版本号格式 \`BUILD/MAJOR.MINOR.PATCH\`：
+          - **BUILD**：累计构建次数，每次发布 +1，永不动
+          - **MAJOR.MINOR.PATCH**：标准 SemVer，逢 9 自动进位
+            （例如 2.0.9 → 2.1.0，2.9.9 → 3.0.0）
 
           ## 下载
 

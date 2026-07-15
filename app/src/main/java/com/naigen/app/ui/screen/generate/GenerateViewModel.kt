@@ -79,13 +79,7 @@ class GenerateViewModel(app: Application) : AndroidViewModel(app) {
 
     val state: StateFlow<GenerateUiState> = combine(
         _input, GenerationBus.progress, GenerationBus.results, GenerationBus.isRunning, _toast
-    ) { values ->
-        @Suppress("UNCHECKED_CAST")
-        val input = values[0] as GenerateUiState
-        val progress = values[1] as GenProgress
-        val results = values[2] as List<GenResult>
-        val isRunning = values[3] as Boolean
-        val toast = values[4] as String?
+    ) { input, progress, results, isRunning, toast ->
         input.copy(isGenerating = isRunning, progress = progress, results = results, toast = toast)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, GenerateUiState())
 
