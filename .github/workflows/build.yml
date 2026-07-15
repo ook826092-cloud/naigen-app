@@ -1,12 +1,14 @@
 name: Build & Release
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 触发条件：仅手动触发
-#   - 想发版时到 Actions 页面点 "Run workflow"
-#   - 不再监听 push，避免每次提交都跑
+# 触发条件：
+#   - push 到 main：编译验证（跑测试 + lint + assembleRelease），不 bump 版本号、不发布
+#   - 手动 workflow_dispatch：完整发版流程（bump 版本号 + 编译签名 + 发布 Release）
 #   - 可选输入 skip_bump 跳过版本号自增
 # ─────────────────────────────────────────────────────────────────────────────
 on:
+  push:
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       skip_bump:
@@ -57,7 +59,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Bump version (BUILD_NUMBER +1, SemVer 逢 9 进位)
-        if: github.event_name != 'workflow_dispatch' || github.event.inputs.skip_bump != 'true'
+        # 仅手动触发发版时才 bump 版本号并 commit 回仓库；
+        # push 触发时跳过（只做编译验证，不动版本号）
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.skip_bump != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash scripts/bump-version.sh --commit
@@ -194,6 +198,8 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────────
   release:
     name: Publish Release
+    # 仅手动触发发版时才创建 Release；push 触发时跳过（只验证编译）
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     needs: [ bump-version, build ]
     steps:
