@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import com.naigen.app.data.db.entities.CustomStyleEntity
 import com.naigen.app.data.db.entities.FavoriteEntity
 import com.naigen.app.data.db.entities.HistoryEntity
 
