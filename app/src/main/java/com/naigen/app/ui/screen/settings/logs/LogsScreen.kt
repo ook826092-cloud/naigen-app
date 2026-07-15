@@ -71,7 +71,8 @@ fun LogsScreen(nav: NavController) {
                     containerColor = MaterialTheme.colorScheme.background
                 )
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -121,11 +122,6 @@ fun LogsScreen(nav: NavController) {
                 }
             }
         }
-
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)
-        )
     }
 }
 
