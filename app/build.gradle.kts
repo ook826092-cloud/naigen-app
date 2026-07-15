@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -6,23 +8,29 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+// ── 从 version.properties 读取版本号（单一来源）───────────────────────────
+// 工作流 push 到 main 时会调 scripts/bump-version.sh 自增 PATCH
+val versionPropsFile = rootProject.file("version.properties")
+val versionMajor: Int
+val versionMinor: Int
+val versionPatch: Int
+if (versionPropsFile.exists()) {
+    val props = Properties()
+    versionPropsFile.inputStream().use { props.load(it) }
+    versionMajor = (props.getProperty("VERSION_MAJOR") ?: "1").toInt()
+    versionMinor = (props.getProperty("VERSION_MINOR") ?: "0").toInt()
+    versionPatch = (props.getProperty("VERSION_PATCH") ?: "0").toInt()
+} else {
+    versionMajor = 1
+    versionMinor = 0
+    versionPatch = 0
+}
+val versionCodeVal = versionMajor * 10000 + versionMinor * 100 + versionPatch
+val versionNameVal = "$versionMajor.$versionMinor.$versionPatch"
+
 android {
     namespace = "com.naigen.app"
     compileSdk = 35
-
-    // ── 从 version.properties 读取版本号（单一来源）───────────────────────
-    // 工作流 push 到 main 时会调 scripts/bump-version.sh 自增 PATCH
-    val versionPropsFile = rootProject.file("version.properties")
-    val (versionCodeVal, versionNameVal) = if (versionPropsFile.exists()) {
-        val props = java.util.Properties()
-        versionPropsFile.inputStream().use { props.load(it) }
-        val major = (props.getProperty("VERSION_MAJOR") ?: "1").toInt()
-        val minor = (props.getProperty("VERSION_MINOR") ?: "0").toInt()
-        val patch = (props.getProperty("VERSION_PATCH") ?: "0").toInt()
-        (major * 10000 + minor * 100 + patch) to "$major.$minor.$patch"
-    } else {
-        1 to "1.0.0"
-    }
 
     defaultConfig {
         applicationId = "com.naigen.app"
