@@ -208,6 +208,8 @@ object AppLog {
 
     // ── 格式化 ────────────────────────────────────────────────────────────
 
+    fun formatAppEntry(entry: Entry): String = formatApp(entry)
+
     private fun formatApp(entry: Entry): String {
         val time = dateFormat.format(Date(entry.timestamp))
         val lv = when (entry.level) {

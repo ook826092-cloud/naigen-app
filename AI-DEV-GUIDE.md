@@ -591,4 +591,94 @@ chore: 杂项
 
 ---
 
-*本文档最后更新：2026-07-15 · 由 AI 辅助生成 · MIT License*
+*本文档最后更新：2026-07-15 (v2.3.x) · 由 AI 辅助生成 · MIT License*
+
+---
+
+## 14. v2.3.x 重大变更（必读）
+
+### 14.1 日志系统 v5
+
+**两 Tab 结构**：
+- **应用日志**：文件列表模式（不是实时滚动条目）
+  - 顶部「当前日志」条目：显示实时内存缓冲内容
+  - 每天一个文件：`app_YYYYMMDD.log`（完整日志，不删除）
+  - 自动剥离：`error_YYYYMMDD.log`（仅错误）、`warn_YYYYMMDD.log`（仅警告）
+  - **重要**：完整日志和剥离文件共存，不要删除完整日志
+  - 点击 → 详情页（完整页面，不是弹窗），有分享按钮
+  - 长按 → 分享 / 导出（到 Downloads） / 删除
+
+- **请求日志**：每条网络请求单独一个 TXT 文件
+  - 文件名：`net_YYYYMMDD_HHmmss_NNN.txt`
+  - 存在 `logs/net/` 目录
+  - 内容：时间 / 方法 / URL / 耗时 / 请求头 / 请求体 / 响应头 / 响应体
+  - 点击 → 详情页
+  - 长按 → 分享 / 导出 / 删除
+
+**AppLog 关键方法**：
+```kotlin
+AppLog.init(context)           // 初始化
+AppLog.i(tag, message)         // 应用日志 INFO
+AppLog.e(tag, message, throwable)  // 应用日志 ERROR（自动写 error 文件）
+AppLog.network(method, url, requestHeaders, requestBody, responseCode, responseHeaders, responseBody, durationMs)  // 网络日志
+AppLog.getAppFiles()           // 获取应用日志文件列表
+AppLog.getNetworkFiles()       // 获取网络日志文件列表
+AppLog.getFileContent(name, isNetwork)  // 读取文件内容
+AppLog.formatAppEntry(entry)   // 格式化单条应用日志
+```
+
+**⚠️ 注意事项**：
+- `writeAppFile()` 同时写 `app_` + `error_`/`warn_` 文件，**不是**从 app 文件中删除后写到 error 文件
+- 网络日志每条请求一个文件，不要合并成一个文件
+- LogsScreen 用 `LogDetailPage`（完整页面）显示内容，不用 `AlertDialog`
+
+### 14.2 深色/浅色模式
+
+- 设置 → 关于 → 深色模式
+- 三选一：跟随系统 / 浅色 / 深色
+- DataStore 持久化 `theme_mode` 字段
+- `MainActivity` 通过 `settingsStore.themeMode` Flow 驱动 `NaiTheme(darkTheme = ...)`
+- 切换后立即生效，无需重启
+
+### 14.3 多语言
+
+- 7 种语言 strings.xml：`values/`（中文默认）、`values-en/`、`values-ja/`、`values-ko/`、`values-fr/`、`values-de/`、`values-es/`
+- 设置 → 关于 → 语言 → `AppCompatDelegate.setApplicationLocales()`
+- `MainActivity` 必须继承 `AppCompatActivity`，主题必须继承 `Theme.AppCompat.*`
+- 底部导航栏 + 设置页已迁移到 `stringResource()`
+- **后续待做**：其他页面（生成页、相册页等）的 UI 字符串仍硬编码中文
+
+### 14.4 版本号
+
+- `versionName` = 纯 SemVer（如 `2.3.3`）— 安卓系统识别的
+- `versionCode` = `major*10000 + minor*100 + patch`（如 `20303`）
+- `BuildConfig.BUILD_NUMBER` = 累计构建次数（如 `20033`）— 只在关于页显示
+- 关于页显示格式：`BUILD_NUMBER - 20000 / SEMVER`（如 `33 / 2.3.3`）
+- 工作流 release notes 里也用 `DISPLAY_BUILD = BUILD - 20000`
+
+### 14.5 页面切换动画
+
+所有设置子页面都加了 `slideInHorizontally` / `slideOutHorizontally` 过渡动画。
+新增子页面时记得加：
+```kotlin
+composable(
+    SubDest.Xxx.route,
+    enterTransition = { slideInHorizontally { it } },
+    exitTransition = { slideOutHorizontally { -it / 3 } },
+    popEnterTransition = { slideInHorizontally { -it / 3 } },
+    popExitTransition = { slideOutHorizontally { it } }
+) { XxxScreen(nav = nav) }
+```
+
+### 14.6 DropdownSelector 组件
+
+用 `ExposedDropdownMenuBox` 实现的通用下拉菜单，解决所有 `OutlinedTextField.readOnly + clickable` 不响应问题。
+```kotlin
+DropdownSelector(
+    label = "保留时间",
+    options = listOf("不限制", "1 小时", "24 小时"),
+    selectedIndex = 0,
+    onSelected = { index -> ... }
+)
+```
+**不要再用手写的 `OutlinedTextField.readOnly + clickable` 下拉菜单**，一定用 `DropdownSelector`。
