@@ -1,18 +1,14 @@
 package com.naigen.app.service
 
 import android.app.Notification
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
-import androidx.core.app.NotificationCompat
 import com.naigen.app.MainActivity
 import com.naigen.app.NaiApplication
-import com.naigen.app.R
 import com.naigen.app.data.model.GenRequest
 import com.naigen.app.data.repository.GenProgress
 import com.naigen.app.util.ImageSaver
@@ -27,20 +23,15 @@ import kotlinx.coroutines.launch
 /**
  * 前台服务：执行 API Job 轮询，保障 App 退到后台后任务不中断。
  *
+ * 通知构建委托给 [IslandNotifier]，自动适配：
+ *   - 小米超级岛（澎湃OS 2/3，含 miui.focus.param 模板5 + 进度组件）
+ *   - Android 16+ ProgressStyle（OPPO ColorOS 16 流体云 / 原生 Android 16）
+ *   - 老安卓 / 不支持上岛的厂商：标准进度通知降级
+ *
  * Android 15+ 适配：
  *   - 必须用 [startForeground] 的带 foregroundServiceType 重载
  *   - foregroundServiceType 必须在 Manifest 声明（已声明 dataSync）
  *   - 启动后必须 6 秒内显示通知（Android 16 强制）
- *
- * 实时进度通知：
- *   - 轮询每 2 秒一次，每次轮询同步更新通知 text + progress
- *   - 完成时切换到 result channel 发一条普通通知（带点击跳转 MainActivity）
- *   - 失败时同样切换到 result channel
- *
- * 后台保活策略：
- *   - 即使 App 在前台，也优先用 Service 跑生成任务（统一异步路径）
- *   - 用户切到后台时 Service 仍在前台运行（foregroundServiceType 保护）
- *   - 配合 KeepAlive 引导页的厂商保活设置，可做到锁屏也不被杀
  */
 class GenerationService : Service() {
 
@@ -50,11 +41,22 @@ class GenerationService : Service() {
     /** 当前任务总预计秒数（用于进度条最大值） */
     private val expectedTotalSec = 60
 
+    /** 厂商灵动岛 / 流体云 / 标准通知统一适配器 */
+    private lateinit var islandNotifier: IslandNotifier
+
     override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        islandNotifier = IslandNotifier(this)
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // 立即启动前台通知（Android 16 要求 6 秒内）
-        startForegroundCompat(NOTIF_ID, buildProgressNotification("准备生成…", 0, expectedTotalSec))
+        startForegroundCompat(
+            NOTIF_ID,
+            islandNotifier.buildProgressNotification("准备生成…", 0, expectedTotalSec)
+        )
 
         if (intent == null) {
             // Service 被系统重启，没有任务可跑，立即停掉
@@ -79,33 +81,34 @@ class GenerationService : Service() {
             negativePrompt = negative,
             styleKey = styleKey,
             sizeKey = sizeKey,
-            steps = intent.getIntExtra("steps", 0).let { if (it > 0) it else null },
-            scale = intent.getDoubleExtra("scale", 0.0).let { if (it > 0) it else null },
-            cfg = intent.getDoubleExtra("cfg", -1.0).let { if (it >= 0) it else null },
-            sampler = intent.getStringExtra("sampler"),
-            seed = intent.getLongExtra("seed", 0).let { if (it > 0) it else null },
-            customArtist = intent.getStringExtra("customArtist") ?: ""
+            steps = intent.getIntExtra(EXTRA_STEPS, 0).let { if (it > 0) it else null },
+            scale = intent.getDoubleExtra(EXTRA_SCALE, 0.0).let { if (it > 0) it else null },
+            cfg = intent.getDoubleExtra(EXTRA_CFG, -1.0).let { if (it >= 0) it else null },
+            sampler = intent.getStringExtra(EXTRA_SAMPLER),
+            seed = intent.getLongExtra(EXTRA_SEED, 0).let { if (it > 0) it else null },
+            customArtist = intent.getStringExtra(EXTRA_CUSTOM_ARTIST) ?: ""
         )
 
         currentJob = scope.launch {
             try {
                 if (variants <= 1) {
-                    updateProgress("创建任务中…", 0)
+                    updateProgress("创建任务中…", 0, "")
                     val result = app.naiRepository.generate(req, 0, 1) { p ->
                         GenerationBus.publishProgress(p)
                         when (p) {
-                            is GenProgress.Creating -> updateProgress("创建任务中…", 1)
+                            is GenProgress.Creating -> updateProgress("创建任务中…", 1, "")
                             is GenProgress.Polling -> updateProgress(
                                 "生成中… ${p.elapsedSec}s · job ${p.jobId.take(8)}",
-                                p.elapsedSec.coerceAtMost(expectedTotalSec)
+                                p.elapsedSec.coerceAtMost(expectedTotalSec),
+                                p.jobId.take(8)
                             )
-                            is GenProgress.Downloading -> updateProgress("下载图片中…", expectedTotalSec)
+                            is GenProgress.Downloading -> updateProgress("下载图片中…", expectedTotalSec, "")
                             else -> {}
                         }
                     }
                     finishWith(req, result)
                 } else {
-                    updateProgress("并发出 $variants 张…", 0)
+                    updateProgress("并发出 $variants 张…", 0, "")
                     app.naiRepository.generateVariants(req, variants).collectLatest { p ->
                         when (p) {
                             is GenProgress.OneDone -> {
@@ -113,7 +116,8 @@ class GenerationService : Service() {
                                 val ok = p.result.success
                                 updateProgress(
                                     "已出 ${p.variant + 1}/$variants 张" + if (!ok) "（失败）" else "",
-                                    (p.variant + 1).coerceAtMost(variants)
+                                    (p.variant + 1).coerceAtMost(variants),
+                                    ""
                                 )
                             }
                             is GenProgress.AllDone -> {
@@ -121,7 +125,7 @@ class GenerationService : Service() {
                                 // 全部成功才写历史，部分失败也存（便于排查）
                                 p.results.forEach { persistResult(req, it) }
                                 GenerationBus.publishResults(p.results)
-                                notifyDone(
+                                islandNotifier.notifyDone(
                                     if (okCount == variants) "生成完成" else "部分完成",
                                     "$okCount/$variants 张成功 · ${com.naigen.app.data.styles.StyleRegistry.get(req.styleKey)?.name ?: req.styleKey}"
                                 )
@@ -135,6 +139,7 @@ class GenerationService : Service() {
                 com.naigen.app.util.AppLog.e("GenService", "异常: ${e.message}", e)
                 if (e is kotlinx.coroutines.CancellationException) {
                     GenerationBus.markFinished()
+                    islandNotifier.cancelAll()
                     stopSelf()
                     return@launch
                 }
@@ -142,10 +147,10 @@ class GenerationService : Service() {
                 if (existingResults.isNotEmpty() && existingResults.any { it.success }) {
                     val okCount = existingResults.count { it.success }
                     GenerationBus.publishEvent("部分完成: $okCount/${existingResults.size} 张成功")
-                    notifyDone("部分完成", "$okCount/${existingResults.size} 张成功")
+                    islandNotifier.notifyDone("部分完成", "$okCount/${existingResults.size} 张成功")
                 } else {
                     GenerationBus.publishEvent("生成失败: ${e.message}")
-                    notifyDone("生成失败", e.message ?: "未知错误")
+                    islandNotifier.notifyDone("生成失败", e.message ?: "未知错误")
                 }
                 GenerationBus.markFinished()
                 stopSelf()
@@ -162,12 +167,12 @@ class GenerationService : Service() {
         persistResult(req, result)
         GenerationBus.publishResults(listOf(result))
         if (result.success) {
-            notifyDone(
+            islandNotifier.notifyDone(
                 "生成完成",
                 "${result.styleName} · ${com.naigen.app.util.DateUtils.duration(result.generationTimeMs)}"
             )
         } else {
-            notifyDone("生成失败", result.errorMessage ?: "未知错误")
+            islandNotifier.notifyDone("生成失败", result.errorMessage ?: "未知错误")
         }
         stopSelf()
     }
@@ -223,7 +228,7 @@ class GenerationService : Service() {
         super.onDestroy()
     }
 
-    // ── Notification 构造 ────────────────────────────────────────────────────
+    // ── Notification 控制 ────────────────────────────────────────────────────
 
     /**
      * Android 15+ 必须用带 foregroundServiceType 的 startForeground 重载。
@@ -239,109 +244,11 @@ class GenerationService : Service() {
     }
 
     /**
-     * 实时进度通知 —— 适配各厂商「灵动岛」类能力（小米超级岛 / OPPO 流体云 /
-     * vivo 原子岛 / 荣耀 / 魅族等）。
-     *
-     * 设计原则（参考 Android 官方「实时更新通知」指南）：
-     *   - 各厂商的岛实现五花八门，且**自定义 RemoteViews / 私有 extra 在不同
-     *     Android 版本和厂商间行为差异极大、难以稳定**。因此主路径坚持用
-     *     **标准 Android 进度通知规范**，让各厂商自己去识别呈现，兼容性最好、
-     *     老安卓也能降级为普通进度通知。
-     *   - 标准字段：ongoing + CATEGORY_PROGRESS + setProgress + LocusId(S+) +
-     *     FOREGROUND_SERVICE_IMMEDIATE。这套是 Google 官方「ongoing progress」
-     *     规范，小米/OPPO/vivo/荣耀均会据此在状态栏/焦点区/岛上展示。
-     *
-     * 厂商私有扩展（谨慎使用）：
-     *   - 小米澎湃OS3+ 的「超级岛」真正上岛需要结构化的 `miui.focus.param`
-     *     JSON（官方协议），而非社区流传的 `miui.flags_*` 字符串。这里在
-     *     OS3+ 尝试放置一个最小化 `miui.focus.param`（仅声明小岛文本），
-     *     失败则静默忽略——绝不影响标准通知本身。
-     *   - 老版本 Android / 其他厂商：完全走标准字段，不塞任何私有 extra。
-     *
-     * Android 15 / 16 前台服务规范：
-     *   - 必须在 Manifest 声明 foregroundServiceType（已声明 dataSync）。
-     *   - 启动后必须 6 秒内显示通知（Android 16 强制），IMMEDIATE 行为保证。
-     *   - 本 Service 用带 type 重载的 startForeground（见 startForegroundCompat）。
+     * 更新进度通知 —— 委托给 [IslandNotifier]，
+     * 自动按厂商选择上岛 / ProgressStyle / 标准进度通知。
      */
-    private fun buildProgressNotification(text: String, current: Int, total: Int): Notification {
-        val pi = PendingIntent.getActivity(
-            this, 0,
-            Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            },
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-        val indeterminate = current <= 0
-        val builder = NotificationCompat.Builder(this, NaiApplication.CHANNEL_GENERATION)
-            .setContentTitle("NaiGen")
-            .setContentText(text)
-            .setSmallIcon(R.drawable.ic_app_placeholder)
-            .setOngoing(true)
-            .setContentIntent(pi)
-            .setProgress(total, current.coerceAtMost(total.coerceAtLeast(0)), indeterminate)
-            .setOnlyAlertOnce(true)
-            .setSilent(true)
-            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
-
-        val notification = builder.build()
-
-        // Android 12+（S）加 LocusId：各厂商岛/焦点区识别持续场景的标准字段
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            try {
-                notification.extras.putString("android.locusId", "naigen_generation")
-
-                // 小米澎湃OS3+ 超级岛：官方 `miui.focus.param` 最小化协议。
-                // 仅声明 business + 小岛文本，让进度在岛/焦点区可见。
-                // 非小米 / 非 OS3 设备忽略此 extra 无副作用；写入失败也静默忽略。
-                val focusParam = org.json.JSONObject().apply {
-                    put("business", "naigen_generation")
-                    put("ticker", text)
-                    put("protocol", 3)
-                    put("param_island", org.json.JSONObject().apply {
-                        put("bigIslandArea", org.json.JSONObject().apply { put("text", text) })
-                        put("smallIslandArea", org.json.JSONObject().apply { put("text", "NaiGen") })
-                    })
-                }.toString()
-                notification.extras.putString("miui.focus.param", focusParam)
-
-                // OPPO 流体云 / vivo 原子岛 / 荣耀：识别 ongoing + category=progress + LocusId，
-                // 无需私有 extra，标准字段已足够（见方法注释顶部）。
-            } catch (_: Throwable) {
-                // 任何私有 extra 写入失败都静默忽略，绝不影响标准通知
-            }
-        }
-
-        return notification
-    }
-
-    private fun updateProgress(text: String, current: Int) {
-        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.notify(NOTIF_ID, buildProgressNotification(text, current, expectedTotalSec))
-    }
-
-    private fun notifyDone(title: String, text: String) {
-        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        // 先取消进度通知
-        nm.cancel(NOTIF_ID)
-
-        val pi = PendingIntent.getActivity(
-            this, 1,
-            Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            },
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-        val notif = NotificationCompat.Builder(this, NaiApplication.CHANNEL_RESULT)
-            .setContentTitle(title)
-            .setContentText(text)
-            .setSmallIcon(R.drawable.ic_app_placeholder)
-            .setContentIntent(pi)
-            .setAutoCancel(true)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .build()
-        nm.notify(NOTIF_RESULT_ID, notif)
+    private fun updateProgress(text: String, current: Int, jobBrief: String) {
+        islandNotifier.notifyProgress(text, current, expectedTotalSec, jobBrief)
     }
 
     companion object {
@@ -350,6 +257,12 @@ class GenerationService : Service() {
         const val EXTRA_STYLE = "style"
         const val EXTRA_SIZE = "size"
         const val EXTRA_VARIANTS = "variants"
+        const val EXTRA_STEPS = "steps"
+        const val EXTRA_SCALE = "scale"
+        const val EXTRA_CFG = "cfg"
+        const val EXTRA_SAMPLER = "sampler"
+        const val EXTRA_SEED = "seed"
+        const val EXTRA_CUSTOM_ARTIST = "customArtist"
 
         const val NOTIF_ID = 1001
         const val NOTIF_RESULT_ID = 1002
@@ -374,12 +287,12 @@ class GenerationService : Service() {
                 putExtra(EXTRA_STYLE, styleKey)
                 putExtra(EXTRA_SIZE, sizeKey)
                 putExtra(EXTRA_VARIANTS, variants)
-                steps?.let { putExtra("steps", it) }
-                scale?.let { putExtra("scale", it) }
-                cfg?.let { putExtra("cfg", it) }
-                sampler?.let { putExtra("sampler", it) }
-                seed?.let { putExtra("seed", it) }
-                if (customArtist.isNotBlank()) putExtra("customArtist", customArtist)
+                steps?.let { putExtra(EXTRA_STEPS, it) }
+                scale?.let { putExtra(EXTRA_SCALE, it) }
+                cfg?.let { putExtra(EXTRA_CFG, it) }
+                sampler?.let { putExtra(EXTRA_SAMPLER, it) }
+                seed?.let { putExtra(EXTRA_SEED, it) }
+                if (customArtist.isNotBlank()) putExtra(EXTRA_CUSTOM_ARTIST, customArtist)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 ctx.startForegroundService(intent)

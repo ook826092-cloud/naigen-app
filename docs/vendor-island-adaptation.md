@@ -1,99 +1,216 @@
-# 厂商「灵动岛」类能力适配研究（Android 进度通知）
+# 厂商「灵动岛」类能力适配（实时进度通知）
 
-> 适用范围：NaiGen 生成任务的实时进度通知（`GenerationService`）。
-> 目标：在 Android 8.0 (API 26) ~ Android 16+ 上，让进度通知尽可能在厂商的
-> 「灵动岛 / 超级岛 / 流体云 / 原子岛」等焦点区能力中正确呈现，同时老安卓
-> 能优雅降级为普通进度通知。
-
----
-
-## 1. 核心结论（先说人话）
-
-**不要堆各厂商私有 extra key。**
-
-各厂商的"岛"实现差异极大、且不公开统一的简单 key。Android 官方在
-[「实时更新通知」指南](https://developer.android.com/develop/ui/views/notifications/live-update)
-中明确警告：
-
-> 自定义通知在不同 Android 版本和设备制造商之间的行为差异很大，因此难以
-> 进行一致的测试并提供一致的用户体验。**避免使用自定义 RemoteViews / 私有 extra。**
-
-所以 NaiGen 的主路径是 **标准 Android 进度通知规范**，让各厂商自己去识别呈现。
-这带来最好的跨版本 / 跨厂商兼容性，老安卓也只是看不到"岛"但仍有进度条。
-
-标准字段（代码中 `GenerationService.buildProgressNotification` 已实现）：
-- `setOngoing(true)` —— 持续通知，不被滑动清除
-- `setCategory(NotificationCompat.CATEGORY_PROGRESS)` —— 标记为进度通知
-- `setProgress(total, current, indeterminate)` —— 进度条
-- `setLocusId("naigen_generation")` —— Android 12+，关联"场景"，厂商焦点区靠此识别
-- `setForegroundServiceBehavior(FOREGROUND_SERVICE_IMMEDIATE)` —— Android 15+ 立即显示
-- 前台服务 `foregroundServiceType = dataSync` + 带 type 的 `startForeground` 重载
+> 适用范围：NaiGen 生成任务的实时进度通知（`GenerationService` + `IslandNotifier`）。
+> 目标：在 Android 8.0 (API 26) ~ Android 16+ 上，让进度通知在厂商的
+> 「超级岛 / 流体云 / 原子岛 / ProgressStyle」中正确呈现，老安卓优雅降级。
 
 ---
 
-## 2. 各厂商机制梳理
+## 1. 适配架构（按优先级分流）
 
-### 小米 / 红米 —— 超级岛（澎湃OS）
-- **OS1**：仅"焦点通知"，无岛
-- **OS2**：焦点通知 + 状态栏数据，无岛
-- **OS3**（对应 Android 15/16 时代）：**真正支持超级岛**
-- 官方协议：在 `Notification.extras` 放 **`miui.focus.param`**（JSON 字符串），
-  内部结构含 `param_island.bigIslandArea` / `smallIslandArea`、`business`、`ticker`、`protocol`。
-  还需 `miui.focus.pics` / `miui.focus.actions` 等（图片/动作映射）。
-- ⚠️ **社区流传的 `miui.flags_is_foreground_service` / `miui.flags_progress_title`
-  等 key 在小米官方文档中不存在**，属无效 hack。NaiGen 已移除这些，仅在
-  OS3+ 尝试放置最小化 `miui.focus.param`（失败静默忽略）。
-- 判定是否支持岛：`persist.sys.feature.island == "1"`（代码里直接尝试放置，
-  非小米设备忽略该 extra 无副作用）。
+```
+IslandNotifier.buildProgressNotification()
+        │
+        ├─ ① 小米超级岛（澎湃 OS 2/3）
+        │     · vendor == XIAOMI && miuiFocusProtocol in 2..3
+        │     · 走 miui.focus.param 模板5（文本+进度组件），含真实进度条
+        │     · 必须用 CHANNEL_ISLAND（IMPORTANCE_DEFAULT）
+        │
+        ├─ ② Android 16+ Notification.ProgressStyle（API 36）
+        │     · OPPO ColorOS 16 流体云、原生 Android 16 自动兼容
+        │     · 走反射调用，避免 compileSdk=35 编译失败
+        │
+        └─ ③ 标准进度通知（兜底）
+              · ongoing + CATEGORY_PROGRESS + setProgress + LocusId(S+) +
+                FOREGROUND_SERVICE_IMMEDIATE
+              · 老安卓 / 不支持上岛的厂商
+```
 
-### OPPO / 一加 —— 流体云（ColorOS 15+）
-- 靠**系统级智慧推送**与识别 **ongoing + category=progress + LocusId** 通知呈现。
-- 无公开的私有 extra key 清单；官方主推推送服务（Push SDK）。
-- NaiGen 走标准字段即可被流体云识别。
-
-### vivo / iQOO —— 原子岛
-- 识别 **ongoing + category=progress** 的通知在原子岛呈现。
-- 无需私有 extra；标准字段足够。
-
-### 荣耀 / 魅族 / 三星 / 原生 Android
-- 荣耀/魅族有类似焦点区能力，同样识别标准 progress 通知。
-- 三星 / 原生 Android：标准进度通知 + LocusId，无"岛"但体验一致。
+任何上岛路径失败都会 `runCatching` 降级到下一路径，**绝不影响通知本身**。
 
 ---
 
-## 3. 版本适配矩阵
+## 2. 小米超级岛 —— 官方协议核心修正
 
-| Android 版本 | 标准进度通知 | LocusId | 小米超级岛 | 备注 |
-|--------------|------------|---------|-----------|------|
-| 8.0–11 (26–30) | ✅ | ❌（S 才引入） | ❌ | 普通进度通知 |
-| 12–14 (31–34) | ✅ | ✅ | ❌（需 OS3） | 焦点区靠 LocusId |
-| 15 (35) | ✅ | ✅ | 部分（OS3） | 前台服务须带 type，`FOREGROUND_SERVICE_IMMEDIATE` |
-| 16 (36+) | ✅ | ✅ | ✅ | 启动后 **6 秒内**必须显示通知（强制） |
+### 旧实现为何无法上岛
+
+```kotlin
+// ❌ 旧代码（错误）
+val focusParam = JSONObject().apply {
+    put("business", "naigen_generation")
+    put("ticker", text)
+    put("protocol", 3)                      // 错：protocol=1 是兼容协议版本号
+    put("param_island", JSONObject().apply { // 错：顶层应是 param_v2
+        put("bigIslandArea", ...)
+    })
+}.toString()
+notification.extras.putString("miui.focus.param", focusParam)
+```
+
+| 错误 | 后果 |
+|------|------|
+| 顶层少了 `param_v2` 包裹层 | 小米系统**根本识别不出**这是上岛通知 |
+| `protocol` 值用 3 | 实际应为 `1`（OS2/OS3 兼容协议版本） |
+| 用 `param_island` 字段 | 不在官方协议中，无效 |
+| 没用模板5（文本+进度组件） | 生图场景最佳模板未启用 |
+| 没查设备是否支持 | 不支持的设备浪费 extra |
+
+### 新实现（[IslandNotifier.kt](file:///workspace/app/src/main/java/com/naigen/app/service/IslandNotifier.kt)）
+
+```kotlin
+// ✅ 新代码
+val paramV2 = JSONObject().apply {
+    put("protocol", 1)                              // OS2/OS3 兼容协议
+    put("business", "naigen_generation")
+    put("enableFloat", true)
+    put("updatable", true)
+    put("ticker", text)
+    put("aodTitle", "NaiGen · 生成中")
+
+    // 大岛（展开态）—— 文本组件1 + 进度组件2（模板5）
+    put("bigIslandArea", JSONObject().apply {
+        put("title", "NaiGen")
+        put("content", text)
+        put("progress", JSONObject().apply {
+            put("progress", percent)              // 0..100
+            put("colorProgress", "#FF007AFF")
+            put("isAutoProgress", false)
+        })
+        put("picInfo", JSONObject().apply { put("type", 1) })
+    })
+
+    // 小岛（折叠态）
+    put("smallIslandArea", JSONObject().apply {
+        put("title", "NaiGen")
+        put("content", "$percent%")
+        put("picInfo", JSONObject().apply { put("type", 1) })
+    })
+}
+val focusParam = JSONObject().apply {
+    put("param_v2", paramV2)                       // 关键：必须包裹在 param_v2 下
+}.toString()
+notification.extras.putString("miui.focus.param", focusParam)
+```
+
+### 设备能力判定
+
+```kotlin
+// 通过 Settings.System 查小米焦点通知协议版本
+val miuiFocusProtocol = Settings.System.getInt(
+    contentResolver, "notification_focus_protocol", 0
+)
+// 0: 不支持
+// 1: OS1 焦点通知
+// 2: OS2 焦点通知（状态栏、通知中心、锁屏、息屏、小折叠外屏）
+// 3: OS3 小米超级岛（含岛摘要态、岛展开态 + 焦点通知）
+```
+
+### 上线前必做（小米开发者侧）
+
+1. 注册小米开发者账号并实名认证
+2. 在开发者平台创建/上架应用
+3. 配置 APK 签名证书指纹
+4. 申请「焦点通知」权限（邮件申请，详见小米官方 Q&A）
+5. 联调阶段：在「设备白名单管理」加入测试设备 IMEI
+6. 通过审核后小米会灰度放量，约 7~15 天全量
+
+> 参考：[小米超级岛开发指南](https://dev.mi.com/xiaomihyperos/documentation/detail?pId=2131) ｜
+> [版本信息](https://dev.mi.com/xiaomihyperos/documentation/detail?pId=2141) ｜
+> [展开态设计规范](https://dev.mi.com/xiaomihyperos/documentation/detail?pId=2142)
 
 ---
 
-## 4. NaiGen 当前实现（代码层面）
+## 3. Android 16+ ProgressStyle（OPPO ColorOS 16 流体云）
 
-`GenerationService.buildProgressNotification()`：
-- 主路径：标准 Android 进度通知规范（跨厂商 / 跨版本兼容，老安卓降级）。
-- Android 12+：加 `LocusId`，并在小米设备尝试 `miui.focus.param` 最小化协议。
-- 任何私有 extra 写入失败都 `try/catch` 静默忽略，**绝不影响标准通知**。
-- 前台服务：已用带 `FOREGROUND_SERVICE_TYPE_DATA_SYNC` 的 `startForeground` 重载
-  （`startForegroundCompat`），满足 Android 15/16 规范。
+OPPO ColorOS 16 的流体云已完整接入 Android 16 的 `Notification.ProgressStyle` API。
+**只要应用遵循 Google 实时活动 API 规范即可直接上岛。**
 
-### 进度条语义说明（原问题5「60s 固定值失真」）
-`expectedTotalSec = 60` 是历史硬编码。真实生图时长依赖服务器（最长 180s）。
-NaiGen 进度条目前：
-- 单张：基于轮询秒数，`coerceAtMost(expectedTotalSec)`，超 60s 后停在满格；
-- 并发：用 `variant+1 / variants` 计数进度（更合理）。
-- 因真实耗时不可预估，建议长期使用「不确定进度」（`setProgress(0,0,true)`）
-  或基于变体计数的进度，而非时间估算。本期保留接口、修正 coerce 防越界，
-  未做大改（避免引入回归）。
+### 实现方式
+
+由于 `compileSdk = 35`，无法直接引用 `Notification.ProgressStyle`（API 36 类）。
+采用**反射调用**：
+
+```kotlin
+if (Build.VERSION.SDK_INT >= 36) {
+    val progressStyleClass = Class.forName("android.app.Notification\$ProgressStyle")
+    val progressStyle = progressStyleClass.getDeclaredConstructor().newInstance()
+    // setProgressSegments([Segment(done, accentColor), Segment(remaining, grayColor)])
+    // setProgress(current)
+    // setBuilder(builder)
+    // build() → Notification
+}
+```
+
+升级 `compileSdk = 36` 后可改为直接调用，无需反射。
+
+### 官方模板字段
+
+| 参数 | 含义 |
+|------|------|
+| A 背景图标 | 一般为 App 图标 |
+| B 头部标题 | 一般为 App 名称 |
+| D 通知标题 | 进度标题 |
+| E 通知内容 | 进度文案 |
+| F 进度条 | `setProgressSegments` + `setProgress` |
+| G 操作按钮 | 可选 |
+
+参考：[Android 16 以进度为主轴的通知](https://developer.android.com/about/versions/16/features/progress-centric-notifications) ｜
+[Jetpack Compose 实时更新通知](https://developer.android.com/develop/ui/compose/notifications/live-update)
 
 ---
 
-## 5. 后续可优化
-1. 进度条改"不确定进度"或变体计数进度，去除时间估算失真。
-2. 小米 `miui.focus.param` 如需完整岛布局（图文/动作），需补 `miui.focus.pics`
-   / `miui.focus.actions` 并实现 `bigIslandArea` 结构化布局（成本较高，按需）。
-3. 建立真机矩阵测试（小米OS3 / OPPO ColorOS15 / vivo 等）验证焦点区呈现。
+## 4. 各厂商机制总结
+
+| 厂商 | 能力名称 | 接入方式 | 本 App 实现 |
+|------|---------|---------|------------|
+| 小米 / 红米 | 超级岛（澎湃OS 2/3） | `miui.focus.param` JSON 协议 | ✅ 模板5 + 进度组件 |
+| OPPO / 一加 | 流体云（ColorOS 14+） | ColorOS 16 走 ProgressStyle；14/15 走意图共享 SDK | ✅ API 36+ 自动适配 |
+| vivo / iQOO | 原子岛（OriginOS 5+） | 厂商私有协议（未完全公开），部分兼容标准进度通知 | ⚠️ 标准通知降级 |
+| 荣耀 | 灵动胶囊（MagicOS 8+） | 基于 YOYO 建议，第三方需单独适配 | ⚠️ 标准通知降级 |
+| 三星 / 原生 | 无岛 | 标准 ProgressStyle / 进度通知 | ✅ 标准通知 |
+
+---
+
+## 5. 版本适配矩阵
+
+| Android 版本 | 标准进度通知 | LocusId | 小米超级岛 | ProgressStyle | 备注 |
+|--------------|------------|---------|-----------|---------------|------|
+| 8.0–11 (26–30) | ✅ | ❌ | ❌ | ❌ | 普通进度通知 |
+| 12–14 (31–34) | ✅ | ✅ | OS2 焦点通知 | ❌ | LocusId 识别场景 |
+| 15 (35) | ✅ | ✅ | OS3 超级岛 | ❌ | `FOREGROUND_SERVICE_IMMEDIATE` |
+| 16 (36+) | ✅ | ✅ | OS3 超级岛 | ✅ | 启动 6 秒内必须显示通知 |
+
+---
+
+## 6. 通知渠道说明
+
+```kotlin
+// NaiApplication.kt
+CHANNEL_GENERATION  // IMPORTANCE_LOW   —— 老安卓标准进度通知
+CHANNEL_RESULT      // IMPORTANCE_DEFAULT —— 完成结果通知
+CHANNEL_ISLAND      // IMPORTANCE_DEFAULT —— 上岛专用（无声音，仅视觉）
+```
+
+小米超级岛要求渠道 `IMPORTANCE_DEFAULT` 或更高才能上岛，
+但进度频繁更新会扰民，所以 `CHANNEL_ISLAND` 显式禁用了声音和震动。
+
+---
+
+## 7. 代码文件索引
+
+| 文件 | 职责 |
+|------|------|
+| [IslandNotifier.kt](file:///workspace/app/src/main/java/com/naigen/app/service/IslandNotifier.kt) | 厂商分流 + 上岛 JSON 构建 + ProgressStyle 反射 |
+| [GenerationService.kt](file:///workspace/app/src/main/java/com/naigen/app/service/GenerationService.kt) | 前台服务，委托 IslandNotifier 构建通知 |
+| [NaiApplication.kt](file:///workspace/app/src/main/java/com/naigen/app/NaiApplication.kt) | 三个通知渠道初始化 |
+
+---
+
+## 8. 后续可优化
+
+1. **小米超级岛图片资源**：当前 `picInfo.type=1` 用系统默认桌面图标，
+   可改为自定义图标资源（需上传到小米开发者平台）
+2. **小米超级岛动作按钮**：可加 `miui.focus.actions` 提供取消按钮
+3. **ProgressStyle 升级到直接调用**：升级 `compileSdk = 36` 后移除反射
+4. **vivo / 荣耀接入**：等厂商公开第三方接入协议后补充
+5. **真机矩阵测试**：小米 OS3 / OPPO ColorOS 16 / vivo OriginOS 5 验证

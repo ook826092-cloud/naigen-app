@@ -119,11 +119,25 @@ class NaiApplication : Application(), ImageLoaderFactory {
         ).apply {
             description = "生成完成或失败时通知"
         }.also { nm.createNotificationChannel(it) }
+
+        // 上岛专用渠道：IMPORTANCE_DEFAULT（小米超级岛要求至少 DEFAULT 才能上岛）
+        NotificationChannel(
+            CHANNEL_ISLAND,
+            "实时进度（灵动岛）",
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "适配小米超级岛 / OPPO 流体云 / vivo 原子岛 / Android 16+ ProgressStyle"
+            setShowBadge(false)
+            // 不发声：进度更新频繁，仅视觉展示
+            setSound(null, null)
+            enableVibration(false)
+        }.also { nm.createNotificationChannel(it) }
     }
 
     companion object {
         const val CHANNEL_GENERATION = "ch_generation"
         const val CHANNEL_RESULT = "ch_result"
+        const val CHANNEL_ISLAND = "ch_island"
     }
 }
 
