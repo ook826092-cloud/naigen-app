@@ -348,7 +348,7 @@ private fun AdvancedParams(state: GenerateUiState, vm: GenerateViewModel, allSty
                 OutlinedTextField(
                     value = state.customArtist,
                     onValueChange = vm::updateCustomArtist,
-                    placeholder = { Text(stringResource(R.string.gen_custom_artist_placeholder)) },
+                    placeholder = { Text(stringResource(R.string.gen_custom_artist_placeholder) },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2,
                     shape = RoundedCornerShape(8.dp),

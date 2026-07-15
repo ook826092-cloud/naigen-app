@@ -39,7 +39,7 @@ fun ThemeScreen(vm: SettingsViewModel = viewModel(), nav: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.theme_title)) },
+                title = { Text(stringResource(R.string.theme_title) },
                 navigationIcon = {
                     IconButton(onClick = { nav.popBackStack() }) {
                         Icon(Icons.Outlined.ArrowBack, contentDescription = "返回")

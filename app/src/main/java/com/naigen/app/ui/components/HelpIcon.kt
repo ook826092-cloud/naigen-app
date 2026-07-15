@@ -66,7 +66,7 @@ fun HelpIcon(
             title = { Text(title, fontWeight = FontWeight.SemiBold) },
             text = { Text(description) },
             confirmButton = {
-                TextButton(onClick = { showDialog = false }) { Text(stringResource(R.string.common_got_it)) }
+                TextButton(onClick = { showDialog = false }) { Text(stringResource(R.string.common_got_it) }
             }
         )
     }
