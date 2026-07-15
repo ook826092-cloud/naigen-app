@@ -143,7 +143,7 @@ fun AlbumScreen(vm: AlbumViewModel = viewModel()) {
     if (confirmDeleteAll) {
         AlertDialog(
             onDismissRequest = { confirmDeleteAll = false },
-            title = { Text(stringResource(R.string.album_clear_title) },
+            title = { Text(stringResource(R.string.album_clear_title)) },
             text = { Text("将删除所有 ${items.size} 张图片，不可恢复。确定继续？") },
             confirmButton = {
                 TextButton(onClick = {
@@ -234,6 +234,6 @@ private fun AlbumDetailDialog(
                 }
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.album_close) } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.album_close)) } }
     )
 }
