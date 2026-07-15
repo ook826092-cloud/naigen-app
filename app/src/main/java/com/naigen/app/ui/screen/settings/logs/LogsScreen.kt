@@ -207,12 +207,9 @@ private fun NetworkFileItem(
 
 // ── 网络请求详情页（完整页面 + 4 Tab）──────────────────────────────────
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-
 // ── 应用日志文件列表项 ─────────────────────────────────────────────────
 
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun LogFileItem(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
