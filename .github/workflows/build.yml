@@ -106,6 +106,9 @@ jobs:
           gradle-version: '8.9'
           cache-read-only: false
 
+      - name: Run Unit Tests
+        run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
+
       - name: Show version
         run: |
           echo "Building version: ${{ needs.bump-version.outputs.version_name }} (code=${{ needs.bump-version.outputs.version_code }})"
