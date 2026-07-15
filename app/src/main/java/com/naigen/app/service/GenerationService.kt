@@ -70,6 +70,7 @@ class GenerationService : Service() {
         val styleKey = intent.getStringExtra(EXTRA_STYLE) ?: "2.5d"
         val sizeKey = intent.getStringExtra(EXTRA_SIZE) ?: "竖图"
         val variants = intent.getIntExtra(EXTRA_VARIANTS, 1)
+            .coerceIn(1, com.naigen.app.data.repository.NaiRepository.MAX_VARIANTS)
         com.naigen.app.util.AppLog.i("GenService", "onStartCommand: variants=" + variants + " style=" + styleKey + " size=" + sizeKey)
 
         val app = applicationContext as NaiApplication

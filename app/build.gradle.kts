@@ -213,14 +213,6 @@ dependencies {
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
-    // WorkManager (for background polling)
-    implementation("androidx.work:work-runtime-ktx:2.9.1")
-
-    // Glance (for widget)
-    val glanceVersion = "1.1.0"
-    implementation("androidx.glance:glance-appwidget:$glanceVersion")
-    implementation("androidx.glance:glance-material3:$glanceVersion")
-
     // Shizuku (用于启动隐藏的厂商设置 Activity, 绕过权限限制)
     implementation("dev.rikka.shizuku:api:13.1.5")
     implementation("dev.rikka.shizuku:provider:13.1.5")

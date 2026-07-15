@@ -214,7 +214,7 @@ class NaiRepository(
         request: GenRequest,
         count: Int
     ): Flow<GenProgress> = flow {
-        val n = count.coerceIn(1, 99)
+        val n = count.coerceIn(1, MAX_VARIANTS)
         emit(GenProgress.Creating(0, n))
 
         val results = coroutineScope {
@@ -250,5 +250,7 @@ class NaiRepository(
         // 教程默认值：轮询 2 秒间隔，最长 180 秒
         const val POLL_INTERVAL_MS = 2000L
         const val MAX_POLL_TIME_MS = 180_000L
+        // 并发生成上限：文案声明「1-6 张」，UI / ViewModel / Service 统一引用此常量
+        const val MAX_VARIANTS = 6
     }
 }

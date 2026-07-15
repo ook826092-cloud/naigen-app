@@ -74,6 +74,21 @@ object AppLog {
     private val netFileFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
     private var netCounter = 0
 
+    /**
+     * 脱敏：把 URL / JSON 请求体中的 token 值遮蔽，避免密钥通过日志文件外泄。
+     *
+     * 覆盖两种形态：
+     *   - URL query：  token=STA1N-xxxx        → token=***REDACTED***
+     *   - JSON body：  "token":"STA1N-xxxx"     → "token":"***REDACTED***"
+     * 仅做展示/落盘前的遮蔽，不影响真实网络请求。
+     */
+    private fun redactToken(raw: String): String {
+        if (raw.isEmpty()) return raw
+        return raw
+            .replace(Regex("([?&]token=)[^&#\\s\"]+"), "$1***REDACTED***")
+            .replace(Regex("(\"token\"\\s*:\\s*\")[^\"]*(\")"), "$1***REDACTED***$2")
+    }
+
     fun init(context: Context) {
         logDir = File(context.filesDir, LOG_DIR).apply { mkdirs() }
         netDir = File(context.filesDir, NET_DIR).apply { mkdirs() }
@@ -127,16 +142,19 @@ object AppLog {
     @Synchronized
     private fun writeNetFile(entry: NetworkEntry) {
         val dir = netDir ?: return
+        // 落盘前脱敏 token，避免密钥随日志文件外泄（分享/导出时）
+        val safeUrl = redactToken(entry.url)
+        val safeBody = redactToken(entry.requestBody)
         try {
             val sb = StringBuilder()
             sb.append("时间: ${dateFormat.format(Date(entry.timestamp))}\n")
             sb.append("方法: ${entry.method}\n")
-            sb.append("URL: ${entry.url}\n")
+            sb.append("URL: $safeUrl\n")
             if (entry.durationMs > 0) sb.append("耗时: ${entry.durationMs}ms\n")
             sb.append("\n===== 请求头 =====\n")
             if (entry.requestHeaders.isNotEmpty()) entry.requestHeaders.forEach { (k, v) -> sb.append("$k: $v\n") } else sb.append("(空)\n")
             sb.append("\n===== 请求体 =====\n")
-            sb.append(if (entry.requestBody.isNotBlank()) entry.requestBody else "(空)")
+            sb.append(if (safeBody.isNotBlank()) safeBody else "(空)")
             sb.append("\n\n===== 响应 ${entry.responseCode} =====\n")
             sb.append("-- 响应头 --\n")
             if (entry.responseHeaders.isNotEmpty()) entry.responseHeaders.forEach { (k, v) -> sb.append("$k: $v\n") } else sb.append("(空)\n")
