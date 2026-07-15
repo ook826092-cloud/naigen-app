@@ -34,6 +34,12 @@
 -keep class androidx.security.crypto.** { *; }
 -keep class com.google.crypto.tink.** { *; }
 -dontwarn com.google.crypto.tink.proto.**
+# Tink 的 KeysDownloader 引用了 google-http-client / errorprone-annotations / joda-time，
+# 这些是 Tink 的可选依赖，运行时不会被 EncryptedSharedPreferences 调用到（本地 keyset，
+# 不走网络下载）。R8 报 Missing class 会阻断 release 构建，用 dontwarn 忽略。
+-dontwarn com.google.api.client.**
+-dontwarn com.google.errorprone.annotations.**
+-dontwarn org.joda.time.**
 
 # ── Shizuku（启动隐藏的厂商设置 Activity，反射调用 IBinder） ─────────────
 -keep class rikka.shizuku.** { *; }
