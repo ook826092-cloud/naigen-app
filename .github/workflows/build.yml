@@ -109,6 +109,22 @@ jobs:
       - name: Run Unit Tests
         run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
 
+      - name: Run Lint (non-blocking)
+        # 静态分析：捕获未使用资源 / 缺失权限 / Compose 性能问题
+        # continue-on-error=true：现有 lint 警告不阻塞发版（后续逐步清理）
+        continue-on-error: true
+        run: ./gradlew lintRelease --no-daemon
+
+      - name: Upload lint reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-reports
+          path: |
+            app/build/reports/lint-results-*.html
+            app/build/reports/lint-results-*.xml
+          retention-days: 7
+
       - name: Show version
         run: |
           echo "Building version: ${{ needs.bump-version.outputs.version_name }} (code=${{ needs.bump-version.outputs.version_code }})"

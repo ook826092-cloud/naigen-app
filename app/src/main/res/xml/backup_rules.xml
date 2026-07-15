@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  备份规则：禁止把任何含敏感数据的私有文件备份到 Google / 设备间传输。
+
+  排除项：
+    - settings.preferences_pb : 旧版 token 在此（迁移后已无 token，但仍排除以防误用）
+    - secure_token.xml        : 加密 token 存储（EncryptedSharedPreferences）
+-->
 <full-backup-content>
     <exclude domain="sharedpref" path="settings.preferences_pb"/>
+    <exclude domain="sharedpref" path="secure_token.xml"/>
 </full-backup-content>

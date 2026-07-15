@@ -130,7 +130,12 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // 开启 R8 代码混淆与压缩：
+            //   - 移除未使用代码，减小 APK 体积
+            //   - 业务逻辑（含 token 处理路径）混淆，提升反编译难度
+            //   - 配合 proguard-rules.pro 的 keep 规则
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -213,6 +218,10 @@ dependencies {
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
+    // 安全存储：用 EncryptedSharedPreferences 加密 API Token
+    // 1.1.0-alpha06 是目前最新稳定可用的版本（alpha 但已被广泛生产使用）
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
     // Shizuku (用于启动隐藏的厂商设置 Activity, 绕过权限限制)
     implementation("dev.rikka.shizuku:api:13.1.5")
     implementation("dev.rikka.shizuku:provider:13.1.5")
@@ -224,4 +233,6 @@ dependencies {
     // Unit tests (纯 JVM，无需 instrumented)
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+    // MockWebServer：用于 NaiApiClient / NaiRepository 的 HTTP 单测
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 }

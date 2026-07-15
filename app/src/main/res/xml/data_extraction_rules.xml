@@ -1,9 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  数据迁移规则（Android 12+）：
+    - cloud-backup：排除敏感文件，禁止备份到 Google Drive
+    - device-transfer：排除敏感文件，禁止随设备迁移带走 token
+-->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="settings.preferences_pb"/>
+        <exclude domain="sharedpref" path="secure_token.xml"/>
     </cloud-backup>
     <device-transfer>
-        <include domain="sharedpref" path="."/>
+        <exclude domain="sharedpref" path="settings.preferences_pb"/>
+        <exclude domain="sharedpref" path="secure_token.xml"/>
     </device-transfer>
 </data-extraction-rules>
