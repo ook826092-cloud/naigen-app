@@ -82,6 +82,22 @@ fun DocsScreen(nav: NavController) {
 
             GroupedList(title = "其他文档") {
                 ListRow(
+                    label = "AI 辅助开发指南",
+                    value = "AI-DEV-GUIDE.md",
+                    onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("$base/AI-DEV-GUIDE.md"))) },
+                    trailing = {
+                        Icon(Icons.Outlined.OpenInNew, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                    }
+                )
+                ListRow(
+                    label = "隐私政策",
+                    value = "PRIVACY.md",
+                    onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("$base/PRIVACY.md"))) },
+                    trailing = {
+                        Icon(Icons.Outlined.OpenInNew, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                    }
+                )
+                ListRow(
                     label = "LICENSE",
                     value = "MIT 协议全文",
                     onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("$base/LICENSE"))) },
