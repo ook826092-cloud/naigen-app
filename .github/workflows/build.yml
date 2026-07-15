@@ -4,10 +4,13 @@ name: Build & Release
 # 触发条件：
 #   - push 到 main 分支（每次更新都触发）
 #   - 手动触发（workflow_dispatch，可输入是否跳过版本自增）
+#   - 排除 bump-version 自动提交触发的二次运行（用 [skip ci] 标记）
 # ─────────────────────────────────────────────────────────────────────────────
 on:
   push:
     branches: [ main ]
+    paths-ignore:
+      - 'version.properties'   # 避免 bump-version 提交触发死循环
   workflow_dispatch:
     inputs:
       skip_bump:
@@ -18,9 +21,8 @@ on:
         options: [ 'false', 'true' ]
 
 permissions:
-  contents: write       # 创建 release / 提交 version.properties
-  actions: write        # 触发后续 workflow（如果有的话）
-  packages: write
+  contents: write
+  actions: write
 
 concurrency:
   group: build-release-${{ github.ref }}
@@ -34,9 +36,8 @@ jobs:
     name: Bump Version
     runs-on: ubuntu-latest
     outputs:
-      version_name: ${{ steps.bump.outputs.VERSION_NAME }}
-      version_code: ${{ steps.bump.outputs.VERSION_CODE }}
-      skipped: ${{ steps.bump.outputs.SKIPPED }}
+      version_name: ${{ steps.read_version.outputs.VERSION_NAME }}
+      version_code: ${{ steps.read_version.outputs.VERSION_CODE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -49,61 +50,34 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Skip bump (manual trigger)
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.skip_bump == 'true'
-        id: skip
-        run: |
-          # 仅读取版本号，不自增
-          source <(grep -E '^VERSION_(MAJOR|MINOR|PATCH)=' version.properties | sed 's/=/:=/')
-          MAJOR="${VERSION_MAJOR//=}"
-          MINOR="${VERSION_MINOR//=}"
-          PATCH="${VERSION_PATCH//=}"
-          NAME="${MAJOR}.${MINOR}.${PATCH}"
-          CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
-          echo "VERSION_NAME=$NAME" >> "$GITHUB_ENV"
-          echo "VERSION_CODE=$CODE" >> "$GITHUB_ENV"
-          echo "SKIPPED=true" >> "$GITHUB_OUTPUT"
-          echo "VERSION_NAME=$NAME" >> "$GITHUB_OUTPUT"
-          echo "VERSION_CODE=$CODE" >> "$GITHUB_OUTPUT"
-          echo "⏭️  跳过版本自增，使用当前版本 $NAME (code=$CODE)"
-
       - name: Bump PATCH version +1
-        if: steps.skip.outputs.SKIPPED != 'true'
-        id: bump
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.skip_bump != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          bash scripts/bump-version.sh --commit
+        run: bash scripts/bump-version.sh --commit
 
-          # 重新读取自增后的值
-          source <(grep -E '^VERSION_(MAJOR|MINOR|PATCH)=' version.properties | sed 's/=/:=/')
-          MAJOR="${VERSION_MAJOR//=}"
-          MINOR="${VERSION_MINOR//=}"
-          PATCH="${VERSION_PATCH//=}"
+      - name: Read final version
+        id: read_version
+        run: |
+          # 用 awk 读取，避免 source 解析 properties 出问题
+          MAJOR=$(awk -F= '/^VERSION_MAJOR=/{print $2}' version.properties)
+          MINOR=$(awk -F= '/^VERSION_MINOR=/{print $2}' version.properties)
+          PATCH=$(awk -F= '/^VERSION_PATCH=/{print $2}' version.properties)
           NAME="${MAJOR}.${MINOR}.${PATCH}"
           CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
-          echo "VERSION_NAME=$NAME" >> "$GITHUB_ENV"
-          echo "VERSION_CODE=$CODE" >> "$GITHUB_ENV"
           echo "VERSION_NAME=$NAME" >> "$GITHUB_OUTPUT"
           echo "VERSION_CODE=$CODE" >> "$GITHUB_OUTPUT"
-          echo "SKIPPED=false" >> "$GITHUB_OUTPUT"
-
-      - name: Pull latest (in case bump commit landed)
-        if: steps.skip.outputs.SKIPPED != 'true'
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          token: ${{ secrets.GITHUB_TOKEN }}
+          echo "Final version: $NAME (code=$CODE)"
 
   # ──────────────────────────────────────────────────────────────────────────
-  # Job 2：编译 Debug + Release APK
+  # Job 2：拉最新代码 + 编译 Debug + Release APK
   # ──────────────────────────────────────────────────────────────────────────
   build:
     name: Build APK
     runs-on: ubuntu-latest
     needs: bump-version
     steps:
-      - name: Checkout
+      - name: Checkout (latest, including bump commit)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -116,11 +90,11 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle
+      - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: '8.9'
-          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          cache-read-only: false
 
       - name: Show version
         run: |
@@ -128,7 +102,7 @@ jobs:
           cat version.properties
 
       - name: Grant execute permission for gradlew
-        run: chmod +x ./gradlew || true
+        run: chmod +x ./gradlew
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug --no-daemon --stacktrace
@@ -143,7 +117,7 @@ jobs:
           DATE=$(date +%Y%m%d)
           find app/build/outputs/apk -name "*.apk" -type f | while read -r apk; do
             base=$(basename "$apk" .apk)
-            newname="NaiGen-${VER}-${base}-${DATE}.apk"
+            newname="NaiGen-v${VER}-${base}-${DATE}.apk"
             cp "$apk" "artifacts/$newname"
             echo "✓ $apk → artifacts/$newname"
           done
@@ -195,7 +169,7 @@ jobs:
           CODE="${{ needs.bump-version.outputs.version_code }}"
           TAG="v${VER}"
 
-          # 检查 tag 是否已存在，存在则用 -rN 后缀避免冲突
+          # 检查 tag 是否已存在
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Tag $TAG already exists, skipping release creation"
             exit 0
@@ -215,7 +189,7 @@ jobs:
           - 校验文件完整性请参考 \`SHA256SUMS.txt\`
           - 安装前需在手机「设置 → 安全」中允许「未知来源」
 
-          ## 安装
+          ## 安装步骤
 
           1. 下载 APK 文件到手机
           2. 点击安装（需开启未知来源）

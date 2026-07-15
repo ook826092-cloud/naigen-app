@@ -57,6 +57,15 @@ if [[ -n "${GITHUB_ENV:-}" ]]; then
     } >> "$GITHUB_ENV"
 fi
 
+# 同步输出 GITHUB_OUTPUT（job outputs 用）
+if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+    {
+        echo "VERSION_NAME=${NEW_VERSION_NAME}"
+        echo "VERSION_CODE=${NEW_VERSION_CODE}"
+        echo "SKIPPED=false"
+    } >> "$GITHUB_OUTPUT"
+fi
+
 # 可选：自动 commit + push
 if [[ "${1:-}" == "--commit" ]]; then
     cd "$ROOT_DIR"
