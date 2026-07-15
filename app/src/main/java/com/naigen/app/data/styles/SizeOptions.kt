@@ -5,7 +5,7 @@ import com.naigen.app.data.model.SizeOption
 /**
  * 9 个尺寸选项（对齐教程 §5.5.5 的 SIZE_OPTIONS）。
  *
- * 注意：Nai2API 接受的是中文字符串 key，width/height 仅用于本地宽高比推断和 UI 预览。
+ * 注意：API 接受的是中文字符串 key，width/height 仅用于本地宽高比推断和 UI 预览。
  */
 object SizeOptions {
 

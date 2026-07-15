@@ -52,12 +52,12 @@ fun ApiConfigScreen(vm: SettingsViewModel = viewModel(), nav: NavController) {
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 32.dp)
         ) {
-            // 服务商选择（目前只有 Nai2API）
+            // 服务商选择（目前只有 API）
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("服务商", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
                 OutlinedTextField(
-                    value = "Nai2API",
+                    value = "API",
                     onValueChange = { },
                     readOnly = true,
                     singleLine = true,
@@ -74,7 +74,7 @@ fun ApiConfigScreen(vm: SettingsViewModel = viewModel(), nav: NavController) {
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "当前仅支持 Nai2API（https://nai.sta1n.cn），无需手动配置地址。",
+                    "当前仅支持 API（https://API 服务器），无需手动配置地址。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

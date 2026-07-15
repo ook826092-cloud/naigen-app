@@ -16,7 +16,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import java.util.concurrent.TimeUnit
 
 /**
- * Nai2API 的 OkHttp 单例客户端。
+ * API 的 OkHttp 单例客户端。
  */
 object NaiApiClient {
 

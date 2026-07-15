@@ -39,7 +39,7 @@ data class CreateJobRequest(
 )
 
 /**
- * POST /api/jobs 的响应。Nai2API 仅返回 [id] 即任务编号，
+ * POST /api/jobs 的响应。API 仅返回 [id] 即任务编号，
  * 失败时可能直接返回 [error] 字段。
  */
 @Serializable

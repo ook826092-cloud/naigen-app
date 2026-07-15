@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.map
  *
  * 存储内容：
  *   - API token (STA1N-...)
- *   - API base URL（默认 https://nai.sta1n.cn）
+ *   - API base URL（默认 https://API 服务器）
  *   - 上次使用的风格 key
  *   - 上次使用的尺寸 key
  *   - 上次使用的 prompt（用于「快速生图」小组件）

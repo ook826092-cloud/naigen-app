@@ -22,7 +22,7 @@
 
 以下数据由用户主动输入，**仅保存在 App 私有目录**（`/data/data/com.naigen.app/`），不会上传到任何服务器：
 
-- **Nai2API Token**：用于调用 Nai2API 服务（https://nai.sta1n.cn），通过 DataStore 加密存储
+- **API Token**：用于调用 API 服务（https://API 服务器），通过 DataStore 加密存储
 - **生成历史**：图片文件 + 缩略图 + 提示词，存于 App 私有 `filesDir/images/`
 - **Prompt 收藏夹**：用户保存的常用提示词模板，存于 Room 数据库
 - **自定义风格**：用户自定义的画师串，存于 Room 数据库
@@ -34,11 +34,11 @@
 
 本应用仅与以下服务通信：
 
-- **Nai2API**（https://nai.sta1n.cn）
+- **API**（https://API 服务器）
   - 用途：调用文生图 API
   - 发送数据：用户输入的提示词、画师串、API Token、设备生成的随机种子
   - 接收数据：生成的图片字节流、任务 ID、余额点数
-  - 不经过任何中间服务器，App 直接与 Nai2API 通信
+  - 不经过任何中间服务器，App 直接与 API 通信
 
 - **GitHub 仓库**（https://github.com/ook826092-cloud/naigen-app）
   - 用途：用户主动点击"关于"或"说明文档"时跳转浏览器查看
@@ -48,7 +48,7 @@
 
 | 权限 | 用途 | 是否必须 |
 |---|---|---|
-| `INTERNET` | 调用 Nai2API | 是 |
+| `INTERNET` | 调用 API | 是 |
 | `ACCESS_NETWORK_STATE` | 检测网络状态 | 是 |
 | `FOREGROUND_SERVICE_DATA_SYNC` | 后台轮询生成任务 | 是 |
 | `POST_NOTIFICATIONS` | 显示生成进度通知 | 否（可拒绝） |

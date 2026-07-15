@@ -37,8 +37,8 @@
     <string name="settings_title">설정</string>
     <string name="settings_api">API</string>
     <string name="settings_api_provider">API 서비스</string>
-    <string name="settings_api_not_configured">Nai2API · Token not configured</string>
-    <string name="settings_api_configured">Nai2API · Configured (%1$s…)</string>
+    <string name="settings_api_not_configured">API · Token not configured</string>
+    <string name="settings_api_configured">API · Configured (%1$s…)</string>
     <string name="settings_style">스타일</string>
     <string name="settings_style_manager">스타일 관리</string>
     <string name="settings_style_subtitle">7 built-in + 29 community + custom</string>
@@ -56,9 +56,9 @@
     <string name="settings_docs_subtitle">GitHub repo README (7 languages)</string>
     <string name="api_title">API 서비스</string>
     <string name="api_provider">Provider</string>
-    <string name="api_provider_name">Nai2API</string>
+    <string name="api_provider_name">API</string>
     <string name="api_provider_builtin">(built-in)</string>
-    <string name="api_provider_desc">Currently only supports Nai2API (https://nai.sta1n.cn). No manual address configuration needed.</string>
+    <string name="api_provider_desc">Currently only supports API (https://API 服务器). No manual address configuration needed.</string>
     <string name="api_token">API Token</string>
     <string name="api_token_hint">STA1N-xxxxx…</string>
     <string name="api_show_plaintext">평문 표시</string>
@@ -128,7 +128,7 @@
     <string name="logs_cleared">Logs cleared</string>
     <string name="logs_count">%1$d entries · persisted to filesDir/logs/app.log</string>
     <string name="about_title">정보</string>
-    <string name="about_subtitle">Android Nai2API text-to-image client</string>
+    <string name="about_subtitle">Android API text-to-image client</string>
     <string name="about_source_docs">Source &amp; docs</string>
     <string name="about_github">GitHub repo</string>
     <string name="about_releases">Releases</string>
@@ -141,7 +141,7 @@
     <string name="about_issues_desc">Submit bug or feature request</string>
     <string name="about_tech_stack">Tech stack</string>
     <string name="about_credits">Credits</string>
-    <string name="about_credits_tutorial">Nai2API tutorial</string>
+    <string name="about_credits_tutorial">API tutorial</string>
     <string name="about_credits_desc">This app is based on this tutorial</string>
     <string name="common_back">뒤로</string>
     <string name="common_close">Close</string>

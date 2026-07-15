@@ -18,7 +18,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -37,54 +36,43 @@ fun LogsScreen(nav: NavController) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    var tab by remember { mutableStateOf(0) } // 0=应用日志, 1=请求日志
+    var tab by remember { mutableStateOf(0) }
     var appFiles by remember { mutableStateOf(AppLog.getAppFiles()) }
-    var networkFiles by remember { mutableStateOf(AppLog.getNetworkFiles()) }
+    var networkEntries by remember { mutableStateOf(AppLog.getNetworkEntries()) }
 
-    // 详情页状态：fileName + isNetwork，null 表示不显示详情页
-    var detailFile by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
-    // 当前日志详情
+    var detailFile by remember { mutableStateOf<Pair<String, Boolean>?>>(null) }
     var showCurrentLog by remember { mutableStateOf(false) }
-    // 长按操作
-    var longPressFile by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
+    var detailNetwork by remember { mutableStateOf<AppLog.NetworkEntry?>(null) }
+    var longPressFile by remember { mutableStateOf<Pair<String, Boolean>?>>(null) }
     var longPressCurrent by remember { mutableStateOf(false) }
+    var longPressNetwork by remember { mutableStateOf<AppLog.NetworkEntry?>(null) }
 
-    // 如果有详情页或当前日志，覆盖显示
+    // 详情页覆盖
     if (showCurrentLog) {
-        LogDetailPage(
-            title = "当前日志",
-            content = AppLog.getAppEntries().joinToString("\n") { AppLog.formatAppEntry(it) },
-            onBack = { showCurrentLog = false },
-            onShare = {
+        LogDetailPage("当前日志",
+            AppLog.getAppEntries().joinToString("\n") { AppLog.formatAppEntry(it) },
+            { showCurrentLog = false },
+            {
                 val text = AppLog.getAppEntries().joinToString("\n") { AppLog.formatAppEntry(it) }
                 val cm = ctx.getSystemService(android.content.ClipboardManager::class.java)
                 cm?.setPrimaryClip(android.content.ClipData.newPlainText("logs", text))
                 scope.launch { snackbarHostState.showSnackbar("已复制到剪贴板") }
-            }
-        )
+            })
         return
     }
-
     detailFile?.let { (fileName, isNet) ->
         val content = AppLog.getFileContent(fileName, isNetwork = isNet)
-        LogDetailPage(
-            title = fileName,
-            content = if (content.length > 30000) content.takeLast(30000) else content,
-            onBack = { detailFile = null },
-            onShare = {
+        LogDetailPage(fileName,
+            if (content.length > 30000) content.takeLast(30000) else content,
+            { detailFile = null },
+            {
                 val file = AppLog.getFile(fileName, isNetwork = isNet)
-                if (file != null) {
-                    val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", file)
-                    val intent = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_STREAM, uri)
-                        putExtra(Intent.EXTRA_SUBJECT, fileName)
-                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    }
-                    ctx.startActivity(Intent.createChooser(intent, "分享 $fileName"))
-                }
-            }
-        )
+                if (file != null) shareFile(ctx, file, fileName)
+            })
+        return
+    }
+    detailNetwork?.let { entry ->
+        NetworkDetailPage(entry, { detailNetwork = null }, ctx, snackbarHostState, scope)
         return
     }
 
@@ -94,13 +82,8 @@ fun LogsScreen(nav: NavController) {
                 title = { Text("日志") },
                 navigationIcon = { IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.Outlined.ArrowBack, contentDescription = "返回") } },
                 actions = {
-                    IconButton(onClick = { appFiles = AppLog.getAppFiles(); networkFiles = AppLog.getNetworkFiles() }) { Icon(Icons.Outlined.Refresh, contentDescription = "刷新") }
-                    IconButton(onClick = {
-                        AppLog.clearAll()
-                        appFiles = AppLog.getAppFiles()
-                        networkFiles = AppLog.getNetworkFiles()
-                        scope.launch { snackbarHostState.showSnackbar("已清空") }
-                    }) { Icon(Icons.Outlined.Delete, contentDescription = "清空", tint = MaterialTheme.colorScheme.error) }
+                    IconButton(onClick = { appFiles = AppLog.getAppFiles(); networkEntries = AppLog.getNetworkEntries() }) { Icon(Icons.Outlined.Refresh, contentDescription = "刷新") }
+                    IconButton(onClick = { AppLog.clearAll(); appFiles = AppLog.getAppFiles(); networkEntries = AppLog.getNetworkEntries(); scope.launch { snackbarHostState.showSnackbar("已清空") } }) { Icon(Icons.Outlined.Delete, contentDescription = "清空", tint = MaterialTheme.colorScheme.error) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
@@ -108,52 +91,37 @@ fun LogsScreen(nav: NavController) {
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
-            // Tab 栏
             TabRow(selectedTabIndex = tab) {
                 Tab(selected = tab == 0, onClick = { tab = 0; appFiles = AppLog.getAppFiles() }, text = { Text("应用日志") })
-                Tab(selected = tab == 1, onClick = { tab = 1; networkFiles = AppLog.getNetworkFiles() }, text = { Text("请求日志") })
+                Tab(selected = tab == 1, onClick = { tab = 1; networkEntries = AppLog.getNetworkEntries() }, text = { Text("请求日志") })
             }
 
             when (tab) {
                 0 -> {
-                    // 应用日志：文件列表
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // 当前日志（实时内存缓冲）
                         item {
-                            LogFileItem(
-                                icon = Icons.Outlined.Description,
-                                iconColor = MaterialTheme.colorScheme.primary,
-                                title = "当前日志",
-                                subtitle = "${AppLog.getAppEntries().size} 条 · 实时",
-                                onClick = { showCurrentLog = true },
-                                onLongPress = { longPressCurrent = true }
-                            )
+                            LogFileItem(Icons.Outlined.Description, MaterialTheme.colorScheme.primary,
+                                "当前日志", "${AppLog.getAppEntries().size} 条 · 实时",
+                                { showCurrentLog = true }, { longPressCurrent = true })
                         }
-                        // 每日日志文件
                         items(appFiles, key = { it.name }) { f ->
                             val (icon, color, label) = when (f.type) {
                                 "error" -> Triple(Icons.Outlined.Warning, MaterialTheme.colorScheme.error, "错误")
                                 "warn" -> Triple(Icons.Outlined.Info, Color(0xFFFF9800), "警告")
                                 else -> Triple(Icons.Outlined.Schedule, MaterialTheme.colorScheme.primary, "日志")
                             }
-                            LogFileItem(
-                                icon = icon,
-                                iconColor = color,
-                                title = f.name,
-                                subtitle = "${formatSize(f.size)} · ${DateUtils.display(f.modified)} · $label",
-                                onClick = { detailFile = Pair(f.name, false) },
-                                onLongPress = { longPressFile = Pair(f.name, false) }
-                            )
+                            LogFileItem(icon, color, f.name,
+                                "${formatSize(f.size)} · ${DateUtils.display(f.modified)} · $label",
+                                { detailFile = Pair(f.name, false) }, { longPressFile = Pair(f.name, false) })
                         }
                     }
                 }
                 1 -> {
-                    // 请求日志：文件列表
-                    if (networkFiles.isEmpty()) {
+                    if (networkEntries.isEmpty()) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text("暂无网络请求", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -163,15 +131,10 @@ fun LogsScreen(nav: NavController) {
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            items(networkFiles, key = { it.name }) { f ->
-                                LogFileItem(
-                                    icon = Icons.Outlined.Cloud,
-                                    iconColor = Color(0xFF4CAF50),
-                                    title = f.name,
-                                    subtitle = "${formatSize(f.size)} · ${DateUtils.display(f.modified)}",
-                                    onClick = { detailFile = Pair(f.name, true) },
-                                    onLongPress = { longPressFile = Pair(f.name, true) }
-                                )
+                            items(networkEntries) { entry ->
+                                NetworkListItem(entry,
+                                    { detailNetwork = entry },
+                                    { longPressNetwork = entry })
                             }
                         }
                     }
@@ -180,79 +143,162 @@ fun LogsScreen(nav: NavController) {
         }
     }
 
-    // 长按操作弹窗 — 文件
+    // 长按弹窗
     longPressFile?.let { (fileName, isNet) ->
-        AlertDialog(
-            onDismissRequest = { longPressFile = null },
-            title = { Text(fileName, style = MaterialTheme.typography.labelMedium) },
-            text = { Text("选择操作") },
-            confirmButton = {
-                Row {
-                    TextButton(onClick = {
-                        val file = AppLog.getFile(fileName, isNetwork = isNet)
-                        if (file != null) {
-                            val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", file)
-                            val intent = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_STREAM, uri); putExtra(Intent.EXTRA_SUBJECT, fileName); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-                            ctx.startActivity(Intent.createChooser(intent, "分享 $fileName"))
-                        }
-                        longPressFile = null
-                    }) { Text("分享") }
-                    TextButton(onClick = {
-                        val file = AppLog.getFile(fileName, isNetwork = isNet)
-                        if (file != null) {
-                            scope.launch {
-                                val ok = exportToDownloads(ctx, file, fileName)
-                                snackbarHostState.showSnackbar(if (ok) "已导出到 Downloads/NaiGen/$fileName" else "导出失败")
-                            }
-                        }
-                        longPressFile = null
-                    }) { Text("导出") }
-                    TextButton(onClick = {
-                        AppLog.deleteFile(fileName, isNetwork = isNet)
-                        appFiles = AppLog.getAppFiles()
-                        networkFiles = AppLog.getNetworkFiles()
-                        scope.launch { snackbarHostState.showSnackbar("已删除") }
-                        longPressFile = null
-                    }) { Text("删除", color = MaterialTheme.colorScheme.error) }
-                }
-            },
-            dismissButton = { TextButton(onClick = { longPressFile = null }) { Text("取消") } }
-        )
+        ActionDialog(fileName, ctx, scope, snackbarHostState,
+            { longPressFile = null; appFiles = AppLog.getAppFiles() },
+            { longPressFile = null },
+            fileName, isNet)
     }
-
-    // 长按操作弹窗 — 当前日志
     if (longPressCurrent) {
         AlertDialog(
             onDismissRequest = { longPressCurrent = false },
-            title = { Text("当前日志") },
-            text = { Text("选择操作") },
+            title = { Text("当前日志") }, text = { Text("选择操作") },
             confirmButton = {
                 Row {
                     TextButton(onClick = {
                         val text = AppLog.getAppEntries().joinToString("\n") { AppLog.formatAppEntry(it) }
                         val cm = ctx.getSystemService(android.content.ClipboardManager::class.java)
                         cm?.setPrimaryClip(android.content.ClipData.newPlainText("logs", text))
-                        scope.launch { snackbarHostState.showSnackbar("已复制到剪贴板") }
+                        scope.launch { snackbarHostState.showSnackbar("已复制") }
                         longPressCurrent = false
                     }) { Text("复制") }
-                    TextButton(onClick = {
-                        AppLog.clearAppBuffer()
-                        scope.launch { snackbarHostState.showSnackbar("当前日志已清空") }
-                        longPressCurrent = false
-                    }) { Text("清空", color = MaterialTheme.colorScheme.error) }
+                    TextButton(onClick = { AppLog.clearAppBuffer(); longPressCurrent = false; scope.launch { snackbarHostState.showSnackbar("已清空") } }) { Text("清空", color = MaterialTheme.colorScheme.error) }
                 }
             },
             dismissButton = { TextButton(onClick = { longPressCurrent = false }) { Text("取消") } }
         )
     }
+    longPressNetwork?.let { entry ->
+        AlertDialog(
+            onDismissRequest = { longPressNetwork = null },
+            title = { Text(entry.url.take(50), style = MaterialTheme.typography.labelMedium) },
+            text = { Text("选择操作") },
+            confirmButton = {
+                Row {
+                    TextButton(onClick = {
+                        val file = AppLog.getFile(entry.fileName, isNetwork = true)
+                        if (file != null) shareFile(ctx, file, entry.fileName)
+                        longPressNetwork = null
+                    }) { Text("分享") }
+                    TextButton(onClick = {
+                        val file = AppLog.getFile(entry.fileName, isNetwork = true)
+                        if (file != null) { scope.launch { val ok = exportToDownloads(ctx, file, entry.fileName); snackbarHostState.showSnackbar(if (ok) "已导出" else "导出失败") } }
+                        longPressNetwork = null
+                    }) { Text("导出") }
+                    TextButton(onClick = { AppLog.deleteFile(entry.fileName, isNetwork = true); networkEntries = AppLog.getNetworkEntries(); longPressNetwork = null; scope.launch { snackbarHostState.showSnackbar("已删除") } }) { Text("删除", color = MaterialTheme.colorScheme.error) }
+                }
+            },
+            dismissButton = { TextButton(onClick = { longPressNetwork = null }) { Text("取消") } }
+        )
+    }
 }
 
-// ── 文件列表项（截图风格）──────────────────────────────────────────────
+// ── 网络请求列表项（概览：时间/方法/URL/耗时）──────────────────────────
+
+@Composable
+private fun NetworkListItem(
+    entry: AppLog.NetworkEntry,
+    onClick: () -> Unit,
+    onLongPress: () -> Unit
+) {
+    val okColor = if (entry.responseCode in 200..299) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
+    Row(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .combinedClickable(onClick = onClick, onLongClick = onLongPress)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // 方法标签
+        Text(entry.method, style = MaterialTheme.typography.labelSmall, color = Color.White, fontWeight = FontWeight.Bold,
+            modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(okColor).padding(horizontal = 6.dp, vertical = 2.dp))
+        Spacer(Modifier.width(8.dp))
+        Column(Modifier.weight(1f)) {
+            Text(entry.url.take(60), style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, maxLines = 1)
+            Row {
+                Text(DateUtils.relative(entry.timestamp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (entry.responseCode > 0) { Spacer(Modifier.width(6.dp)); Text("→ ${entry.responseCode}", style = MaterialTheme.typography.labelSmall, color = okColor) }
+                if (entry.durationMs > 0) { Spacer(Modifier.width(6.dp)); Text("${entry.durationMs}ms", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
+        }
+        Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+    }
+}
+
+// ── 网络请求详情页（完整页面 + 4 Tab）──────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NetworkDetailPage(
+    entry: AppLog.NetworkEntry,
+    onBack: () -> Unit,
+    ctx: android.content.Context,
+    snackbarHostState: SnackbarHostState,
+    scope: kotlinx.coroutines.CoroutineScope
+) {
+    var subTab by remember { mutableStateOf(0) }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("${entry.method} ${entry.responseCode}", style = MaterialTheme.typography.labelMedium) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, contentDescription = "返回") } },
+                actions = {
+                    IconButton(onClick = {
+                        val file = AppLog.getFile(entry.fileName, isNetwork = true)
+                        if (file != null) shareFile(ctx, file, entry.fileName)
+                    }) { Icon(Icons.Outlined.Share, contentDescription = "分享") }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
+            )
+        }
+    ) { padding ->
+        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+            // 概览
+            Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                Text("URL", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(entry.url, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+                Spacer(Modifier.height(4.dp))
+                Row {
+                    Text("时间: ${DateUtils.display(entry.timestamp)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(12.dp))
+                    Text("耗时: ${entry.durationMs}ms", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            HorizontalDivider()
+            // 4 Tab
+            TabRow(selectedTabIndex = subTab) {
+                Tab(selected = subTab == 0, onClick = { subTab = 0 }, text = { Text("请求头", style = MaterialTheme.typography.labelSmall) })
+                Tab(selected = subTab == 1, onClick = { subTab = 1 }, text = { Text("请求体", style = MaterialTheme.typography.labelSmall) })
+                Tab(selected = subTab == 2, onClick = { subTab = 2 }, text = { Text("响应头", style = MaterialTheme.typography.labelSmall) })
+                Tab(selected = subTab == 3, onClick = { subTab = 3 }, text = { Text("响应体", style = MaterialTheme.typography.labelSmall) })
+            }
+            // 内容（代码风格：等宽字体 + 深色背景）
+            val content = when (subTab) {
+                0 -> if (entry.requestHeaders.isEmpty()) "(空)" else entry.requestHeaders.entries.joinToString("\n") { "${it.key}: ${it.value}" }
+                1 -> if (entry.requestBody.isBlank()) "(空)" else entry.requestBody
+                2 -> if (entry.responseHeaders.isEmpty()) "(空)" else entry.responseHeaders.entries.joinToString("\n") { "${it.key}: ${it.value}" }
+                3 -> if (entry.responseBody.isBlank()) "(空)" else entry.responseBody
+                else -> ""
+            }
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
+                contentPadding = PaddingValues(16.dp)
+            ) {
+                item {
+                    Text(content, style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+        }
+    }
+}
+
+// ── 应用日志文件列表项 ─────────────────────────────────────────────────
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun LogFileItem(
-    icon: ImageVector,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     iconColor: Color,
     title: String,
     subtitle: String,
@@ -260,9 +306,7 @@ private fun LogFileItem(
     onLongPress: () -> Unit
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surface)
             .combinedClickable(onClick = onClick, onLongClick = onLongPress)
             .padding(horizontal = 16.dp, vertical = 14.dp),
@@ -278,16 +322,11 @@ private fun LogFileItem(
     }
 }
 
-// ── 日志详情页（完整页面，不是弹窗）────────────────────────────────────
+// ── 日志详情页（完整页面）──────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LogDetailPage(
-    title: String,
-    content: String,
-    onBack: () -> Unit,
-    onShare: () -> Unit
-) {
+private fun LogDetailPage(title: String, content: String, onBack: () -> Unit, onShare: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -298,23 +337,55 @@ private fun LogDetailPage(
             )
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier.padding(padding).fillMaxSize(),
-            contentPadding = PaddingValues(16.dp)
-        ) {
-            item {
-                Text(
-                    content,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontFamily = FontFamily.Monospace,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
+        LazyColumn(modifier = Modifier.padding(padding).fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant), contentPadding = PaddingValues(16.dp)) {
+            item { Text(content, style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurface) }
         }
     }
 }
 
+// ── 操作弹窗 ───────────────────────────────────────────────────────────
+
+@Composable
+private fun ActionDialog(
+    label: String,
+    ctx: android.content.Context,
+    scope: kotlinx.coroutines.CoroutineScope,
+    snackbarHostState: SnackbarHostState,
+    onActionDone: () -> Unit,
+    onDismiss: () -> Unit,
+    fileName: String,
+    isNet: Boolean
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(label, style = MaterialTheme.typography.labelMedium) },
+        text = { Text("选择操作") },
+        confirmButton = {
+            Row {
+                TextButton(onClick = {
+                    val file = AppLog.getFile(fileName, isNetwork = isNet)
+                    if (file != null) shareFile(ctx, file, fileName)
+                    onDismiss()
+                }) { Text("分享") }
+                TextButton(onClick = {
+                    val file = AppLog.getFile(fileName, isNetwork = isNet)
+                    if (file != null) { scope.launch { val ok = exportToDownloads(ctx, file, fileName); snackbarHostState.showSnackbar(if (ok) "已导出" else "导出失败") } }
+                    onDismiss()
+                }) { Text("导出") }
+                TextButton(onClick = { AppLog.deleteFile(fileName, isNetwork = isNet); onActionDone(); onDismiss() }) { Text("删除", color = MaterialTheme.colorScheme.error) }
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+    )
+}
+
 // ── 工具函数 ───────────────────────────────────────────────────────────
+
+private fun shareFile(ctx: android.content.Context, file: File, fileName: String) {
+    val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", file)
+    val intent = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_STREAM, uri); putExtra(Intent.EXTRA_SUBJECT, fileName); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+    ctx.startActivity(Intent.createChooser(intent, "分享 $fileName"))
+}
 
 private fun exportToDownloads(ctx: android.content.Context, srcFile: File, fileName: String): Boolean {
     return try {
@@ -322,9 +393,8 @@ private fun exportToDownloads(ctx: android.content.Context, srcFile: File, fileN
         val values = android.content.ContentValues().apply {
             put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, fileName)
             put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "text/plain")
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION.Q)
                 put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/NaiGen")
-            }
         }
         val collection = android.provider.MediaStore.Files.getContentUri(android.provider.MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val uri = resolver.insert(collection, values) ?: return false

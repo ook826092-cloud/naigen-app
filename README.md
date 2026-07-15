@@ -1,4 +1,4 @@
-# NaiGen — Android Nai2API 文生图客户端
+# NaiGen — Android API 文生图客户端
 
 ![Release](https://img.shields.io/github/v/release/ook826092-cloud/naigen-app?style=flat-square)
 ![Build](https://img.shields.io/github/actions/workflow/status/ook826092-cloud/naigen-app/build.yml?style=flat-square&label=build)
@@ -7,7 +7,7 @@
 
 **语言：** 简体中文 ｜ [English](README.en.md) ｜ [日本語](README.ja.md) ｜ [한국어](README.ko.md) ｜ [Français](README.fr.md) ｜ [Deutsch](README.de.md) ｜ [Español](README.es.md)
 
-一个基于 Nai2API 文生图教程（7.12 版本）的 Android 原生 Kotlin 客户端，**后端完全用 Android 原生方式实现**（OkHttp + Coroutines + Room + DataStore），不依赖 Python / 任何外部服务器。
+一个基于 API 文生图教程（7.12 版本）的 Android 原生 Kotlin 客户端，**后端完全用 Android 原生方式实现**（OkHttp + Coroutines + Room + DataStore），不依赖 Python / 任何外部服务器。
 
 ## 下载
 
@@ -30,7 +30,7 @@
 
 | 教程章节 | 教程实现 | 本 App 实现 |
 |---------|---------|------------|
-| §5.1 Nai2API 概述 | `https://nai.sta1n.cn` Job 异步模式 | `NaiApiClient` + `NaiRepository.generate()` |
+| §5.1 API 概述 | `https://API 服务器` Job 异步模式 | `NaiApiClient` + `NaiRepository.generate()` |
 | §5.5.8 `_get_artist_string` 风格路由 | Python `_get_artist_string` 方法 | `StyleRegistry.resolveArtistString()` |
 | §5.5.10 Job 异步流程 | `requests.post` + `time.sleep` 轮询 | `client.createJob` + `delay()` + `client.pollJob` |
 | §5.5.11 文生图 `generate_text_to_image` | Python 同步方法 | `NaiRepository.generate()` suspend 函数 |
@@ -55,7 +55,7 @@
 | 数据库 | Room 2.6 (HistoryDao + FavoritesDao) | 历史记录 + Prompt 收藏夹 |
 | 偏好 | Preferences DataStore | 替代 Python `.env`（存 token、上次参数） |
 | 图片加载 | Coil 2.7 | 加载 ByteArray / 保存到相册 |
-| 后台 | 前台服务 (foregroundServiceType=dataSync) | App 后台时继续轮询 Nai2API Job |
+| 后台 | 前台服务 (foregroundServiceType=dataSync) | App 后台时继续轮询 API Job |
 | 桌面 | AppWidgetProvider + RemoteViews | "快速生图"小组件 |
 | 最低 SDK | Android 8.0 (API 26) | 用户选定，覆盖 95%+ 设备 |
 | 目标 SDK | Android 15 (API 35) | 适配 Android 15/16 前台服务新规范 |
@@ -118,7 +118,7 @@ naigen-app/
 2. 打开 Android Studio → `File` → `Open` → 选择 `naigen-app` 根目录
 3. 等待 Gradle sync 完成（首次会下载 ~500MB 依赖，国内可挂梯子或在 `settings.gradle.kts` 里把 `mavenCentral()` 改成阿里云镜像）
 
-### 2. 填入 Nai2API Token
+### 2. 填入 API Token
 
 **两种方式：**
 
@@ -214,7 +214,7 @@ adb install -r app/build/outputs/apk/release/app-release.apk
 
 | 权限 | 用途 | 何时请求 |
 |---|---|---|
-| INTERNET | 调用 Nai2API | 安装即生效 |
+| INTERNET | 调用 API | 安装即生效 |
 | FOREGROUND_SERVICE_DATA_SYNC | 后台轮询生成任务 | 启动 GenerationService 时 |
 | POST_NOTIFICATIONS | 显示生成进度通知 | Android 13+ 首次启动时弹窗 |
 | REQUEST_IGNORE_BATTERY_OPTIMIZATIONS | 申请加入电池白名单 | 保活页跳转电池优化时 |
@@ -309,7 +309,7 @@ token 错误或已过期，到购买入口 https://www.qianxun1688.com/links/D07
 
 ### 运行时：轮询超时 180 秒
 
-Nai2API 服务器排队过长，可在 `NaiRepository.kt` 中搜索 `MAX_POLL_TIME_MS`，把 `180_000L` 改成 `300_000L`。
+API 服务器排队过长，可在 `NaiRepository.kt` 中搜索 `MAX_POLL_TIME_MS`，把 `180_000L` 改成 `300_000L`。
 
 ### 编译失败：KSP 报错 Room schema
 
@@ -322,4 +322,4 @@ Nai2API 服务器排队过长，可在 `NaiRepository.kt` 中搜索 `MAX_POLL_TI
 
 ## 许可
 
-本工程代码可自由使用。Nai2API 服务和购买入口属于第三方，使用前请遵守其服务条款。
+本工程代码可自由使用。API 服务和购买入口属于第三方，使用前请遵守其服务条款。

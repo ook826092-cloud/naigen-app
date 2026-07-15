@@ -89,7 +89,7 @@ fun AboutScreen(nav: NavController) {
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Text("Android Nai2API 文生图客户端", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("安卓生图工具", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
             // 链接区
@@ -166,7 +166,7 @@ fun AboutScreen(nav: NavController) {
             // 致谢
             GroupedList(title = "致谢") {
                 ListRow(
-                    label = "Nai2API 教程",
+                    label = "API 教程",
                     value = "本应用基于该教程实现",
                     isLast = true,
                     onClick = {

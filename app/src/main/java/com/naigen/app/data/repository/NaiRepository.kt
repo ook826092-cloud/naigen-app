@@ -35,7 +35,7 @@ sealed class GenProgress {
 }
 
 /**
- * Nai2API 仓库。承担：
+ * API 仓库。承担：
  *   - 从 SettingsStore 读取 token / baseUrl
  *   - 实现 §5.5.11 的 Job 异步流程（创建 → 轮询 → 下载）
  *   - 实现 §5.5.15 的并发变体生成（--variants N）

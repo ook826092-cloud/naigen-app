@@ -25,7 +25,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 /**
- * 前台服务：执行 Nai2API Job 轮询，保障 App 退到后台后任务不中断。
+ * 前台服务：执行 API Job 轮询，保障 App 退到后台后任务不中断。
  *
  * Android 15+ 适配：
  *   - 必须用 [startForeground] 的带 foregroundServiceType 重载

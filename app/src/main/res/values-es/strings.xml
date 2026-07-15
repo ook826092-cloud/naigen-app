@@ -37,8 +37,8 @@ ej: 1girl, solo, silver hair, masterpiece…</string>
     <string name="settings_title">Ajustes</string>
     <string name="settings_api">API</string>
     <string name="settings_api_provider">Proveedor API</string>
-    <string name="settings_api_not_configured">Nai2API · Token not configured</string>
-    <string name="settings_api_configured">Nai2API · Configured (%1$s…)</string>
+    <string name="settings_api_not_configured">API · Token not configured</string>
+    <string name="settings_api_configured">API · Configured (%1$s…)</string>
     <string name="settings_style">Estilo</string>
     <string name="settings_style_manager">Gestor de estilos</string>
     <string name="settings_style_subtitle">7 built-in + 29 community + custom</string>
@@ -56,9 +56,9 @@ ej: 1girl, solo, silver hair, masterpiece…</string>
     <string name="settings_docs_subtitle">GitHub repo README (7 languages)</string>
     <string name="api_title">Proveedor API</string>
     <string name="api_provider">Provider</string>
-    <string name="api_provider_name">Nai2API</string>
+    <string name="api_provider_name">API</string>
     <string name="api_provider_builtin">(built-in)</string>
-    <string name="api_provider_desc">Currently only supports Nai2API (https://nai.sta1n.cn). No manual address configuration needed.</string>
+    <string name="api_provider_desc">Currently only supports API (https://API 服务器). No manual address configuration needed.</string>
     <string name="api_token">Token API</string>
     <string name="api_token_hint">STA1N-xxxxx…</string>
     <string name="api_show_plaintext">Mostrar texto plano</string>
@@ -128,7 +128,7 @@ ej: 1girl, solo, silver hair, masterpiece…</string>
     <string name="logs_cleared">Logs cleared</string>
     <string name="logs_count">%1$d entries · persisted to filesDir/logs/app.log</string>
     <string name="about_title">Acerca de</string>
-    <string name="about_subtitle">Android Nai2API text-to-image client</string>
+    <string name="about_subtitle">Android API text-to-image client</string>
     <string name="about_source_docs">Source &amp; docs</string>
     <string name="about_github">GitHub repo</string>
     <string name="about_releases">Releases</string>
@@ -141,7 +141,7 @@ ej: 1girl, solo, silver hair, masterpiece…</string>
     <string name="about_issues_desc">Submit bug or feature request</string>
     <string name="about_tech_stack">Tech stack</string>
     <string name="about_credits">Credits</string>
-    <string name="about_credits_tutorial">Nai2API tutorial</string>
+    <string name="about_credits_tutorial">API tutorial</string>
     <string name="about_credits_desc">This app is based on this tutorial</string>
     <string name="common_back">Atrás</string>
     <string name="common_close">Close</string>

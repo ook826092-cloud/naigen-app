@@ -7,7 +7,7 @@ import androidx.room.PrimaryKey
  * 生成历史记录。
  *
  * - [imagePath] 图片存到 app 私有 filesDir 的相对路径
- * - [imageUrl]  来自 Nai2API 的可访问 URL（用于分享与内部跟踪）
+ * - [imageUrl]  来自 API 的可访问 URL（用于分享与内部跟踪）
  * - [bytes]     缩略图字节数组（小尺寸预览，避免每次开列表都全图解码）
  */
 @Entity(tableName = "history", indices = [

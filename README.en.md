@@ -1,4 +1,4 @@
-# NaiGen — Android Nai2API Text-to-Image Client
+# NaiGen — Android API Text-to-Image Client
 
 ![Release](https://img.shields.io/github/v/release/ook826092-cloud/naigen-app?style=flat-square)
 ![Build](https://img.shields.io/github/actions/workflow/status/ook826092-cloud/naigen-app/build.yml?style=flat-square&label=build)
@@ -7,7 +7,7 @@
 
 **Languages:** [简体中文](README.md) ｜ English ｜ [日本語](README.ja.md) ｜ [한국어](README.ko.md) ｜ [Français](README.fr.md) ｜ [Deutsch](README.de.md) ｜ [Español](README.es.md)
 
-A native Android Kotlin client based on the Nai2API text-to-image tutorial (v7.12). **Backend is fully implemented with Android-native technologies** (OkHttp + Coroutines + Room + DataStore), with no Python or external server dependencies.
+A native Android Kotlin client based on the API text-to-image tutorial (v7.12). **Backend is fully implemented with Android-native technologies** (OkHttp + Coroutines + Room + DataStore), with no Python or external server dependencies.
 
 ## Download
 
@@ -22,7 +22,7 @@ The workflow runs **only when manually triggered** (via Actions → Run workflow
 
 | Tutorial Section | Tutorial Implementation | This App |
 |---|---|---|
-| §5.1 Nai2API overview | `https://nai.sta1n.cn` Job async mode | `NaiApiClient` + `NaiRepository.generate()` |
+| §5.1 API overview | `https://API 服务器` Job async mode | `NaiApiClient` + `NaiRepository.generate()` |
 | §5.5.8 `_get_artist_string` style routing | Python method | `StyleRegistry.resolveArtistString()` |
 | §5.5.10 Job async flow | `requests.post` + `time.sleep` poll | `client.createJob` + `delay()` + `client.pollJob` |
 | §5.5.11 text-to-image | Python sync method | `NaiRepository.generate()` suspend fn |
@@ -62,7 +62,7 @@ git clone https://github.com/ook826092-cloud/naigen-app.git
 
 Open in Android Studio → wait for Gradle sync (downloads ~500MB dependencies on first run).
 
-### 2. Set Nai2API Token
+### 2. Set API Token
 
 After installing the APK: open App → Settings tab → fill in your `STA1N-xxxxx…` token.
 
@@ -138,7 +138,7 @@ The tutorial §5.5.17 warns about the "all outputs look like 2.5d" bug. This app
 
 | Permission | Purpose | When |
 |---|---|---|
-| INTERNET | Call Nai2API | Always |
+| INTERNET | Call API | Always |
 | FOREGROUND_SERVICE_DATA_SYNC | Background polling | When GenerationService starts |
 | POST_NOTIFICATIONS | Progress notifications | Android 13+ on first launch |
 | REQUEST_IGNORE_BATTERY_OPTIMIZATIONS | Battery whitelist | From keep-alive page |
@@ -211,7 +211,7 @@ Open Settings, fill in `STA1N-...` token. Token is masked by default.
 
 ### Generation fails: "HTTP 401"
 
-Token wrong or expired. Get a new one from your Nai2API provider.
+Token wrong or expired. Get a new one from your API provider.
 
 ### Poll timeout (180s)
 
@@ -228,4 +228,4 @@ Clean and rebuild: `./gradlew clean` → `./gradlew assembleRelease`.
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Nai2API service and purchase links are third-party; follow their terms of service.
+MIT — see [LICENSE](LICENSE). API service and purchase links are third-party; follow their terms of service.

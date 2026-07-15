@@ -45,8 +45,8 @@
     <string name="settings_title">设置</string>
     <string name="settings_api">API</string>
     <string name="settings_api_provider">API 服务商</string>
-    <string name="settings_api_not_configured">Nai2API · 未配置 Token</string>
-    <string name="settings_api_configured">Nai2API · 已配置 (%1$s…)</string>
+    <string name="settings_api_not_configured">API · 未配置 Token</string>
+    <string name="settings_api_configured">API · 已配置 (%1$s…)</string>
     <string name="settings_style">画风</string>
     <string name="settings_style_manager">风格管理</string>
     <string name="settings_style_subtitle">内置 7 + 社区 29 + 自定义</string>
@@ -66,9 +66,9 @@
     <!-- API Config -->
     <string name="api_title">API 服务商</string>
     <string name="api_provider">服务商</string>
-    <string name="api_provider_name">Nai2API</string>
+    <string name="api_provider_name">API</string>
     <string name="api_provider_builtin">(内置)</string>
-    <string name="api_provider_desc">当前仅支持 Nai2API（https://nai.sta1n.cn），无需手动配置地址。</string>
+    <string name="api_provider_desc">当前仅支持 API（https://API 服务器），无需手动配置地址。</string>
     <string name="api_token">API Token</string>
     <string name="api_token_hint">STA1N-xxxxx…</string>
     <string name="api_show_plaintext">显示明文</string>
@@ -150,7 +150,7 @@
 
     <!-- About -->
     <string name="about_title">关于</string>
-    <string name="about_subtitle">Android Nai2API 文生图客户端</string>
+    <string name="about_subtitle">Android API 文生图客户端</string>
     <string name="about_source_docs">源码与文档</string>
     <string name="about_github">GitHub 仓库</string>
     <string name="about_releases">Releases 下载页</string>
@@ -163,7 +163,7 @@
     <string name="about_issues_desc">提交 bug 或建议</string>
     <string name="about_tech_stack">技术栈</string>
     <string name="about_credits">致谢</string>
-    <string name="about_credits_tutorial">Nai2API 教程</string>
+    <string name="about_credits_tutorial">API 教程</string>
     <string name="about_credits_desc">本应用基于该教程实现</string>
 
     <!-- Common -->
