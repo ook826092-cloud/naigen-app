@@ -29,11 +29,15 @@ val appVersion: AppVersion = run {
     if (!f.exists()) return@run AppVersion(1, 1, 0, 0)
     val props = Properties()
     f.inputStream().use { props.load(it) }
+    fun propInt(key: String, fallback: Int): Int =
+        (props.getProperty(key) ?: props.getProperty("VERSION_$key") ?: "").let {
+            it.toIntOrNull() ?: fallback
+        }
     AppVersion(
-        buildNumber = (props.getProperty("BUILD_NUMBER") ?: "1").toInt(),
-        major = (props.getProperty("MAJOR") ?: "1").toInt(),
-        minor = (props.getProperty("MINOR") ?: "0").toInt(),
-        patch = (props.getProperty("PATCH") ?: "0").toInt()
+        buildNumber = propInt("BUILD_NUMBER", 1),
+        major = propInt("MAJOR", 1),
+        minor = propInt("MINOR", 0),
+        patch = propInt("PATCH", 0)
     )
 }
 

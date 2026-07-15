@@ -24,14 +24,26 @@ if [[ ! -f "$VERSION_FILE" ]]; then
 fi
 
 # 用 awk 读取，避免 source 解析 properties 出问题
-read_build() {
-    awk -F= "/^$1=/{print \$2}" "$VERSION_FILE"
+# 兼容旧字段名（VERSION_MAJOR 等）和新字段名（MAJOR 等），找不到时给默认值
+read_field() {
+    local key="$1"
+    local default="$2"
+    # 先找新字段名，找不到再找旧字段名
+    local val
+    val=$(awk -F= "/^${key}=/{print \$2}" "$VERSION_FILE")
+    if [[ -z "$val" ]]; then
+        val=$(awk -F= "/^VERSION_${key}=/{print \$2}" "$VERSION_FILE")
+    fi
+    if [[ -z "$val" ]]; then
+        val="$default"
+    fi
+    echo "$val"
 }
 
-CUR_BUILD=$(read_build BUILD_NUMBER)
-CUR_MAJOR=$(read_build MAJOR)
-CUR_MINOR=$(read_build MINOR)
-CUR_PATCH=$(read_build PATCH)
+CUR_BUILD=$(read_field BUILD_NUMBER 1)
+CUR_MAJOR=$(read_field MAJOR 1)
+CUR_MINOR=$(read_field MINOR 0)
+CUR_PATCH=$(read_field PATCH 0)
 
 NEW_BUILD=$((CUR_BUILD + 1))
 
