@@ -143,7 +143,7 @@ object ManufacturerHelper {
             val cls = Class.forName("android.os.SystemProperties")
             val m = cls.getMethod("get", String::class.java)
             val v = m.invoke(null, name) as? String
-            !v.isNullOrBlank()
+            v != null && v.isNotBlank()
         } catch (_: Throwable) {
             false
         }
