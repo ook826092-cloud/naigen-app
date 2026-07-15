@@ -41,6 +41,16 @@ object NaiApiClient {
             .build()
     }
 
+    /**
+     * 下载专用 client：生图结果图较大，弱网下 60s 读取超时易断流，
+     * 这里单独放宽 readTimeout 到 5 分钟。其余超时与主 client 一致。
+     */
+    private val downloadClient: OkHttpClient by lazy {
+        client.newBuilder()
+            .readTimeout(300, TimeUnit.SECONDS)
+            .build()
+    }
+
     /** POST /api/jobs */
     suspend fun createJob(baseUrl: String, body: CreateJobRequest): CreateJobResponse =
         withContext(Dispatchers.IO) {
@@ -156,7 +166,7 @@ object NaiApiClient {
 
             val req = Request.Builder().url(fullUrl).get().build()
             try {
-                client.newCall(req).execute().use { resp ->
+                downloadClient.newCall(req).execute().use { resp ->
                     if (!resp.isSuccessful) {
                         AppLog.e("NaiApiClient", "downloadImage() 失败: HTTP ${resp.code}")
                         null

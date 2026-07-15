@@ -8,6 +8,7 @@ import com.naigen.app.NaiApplication
 import com.naigen.app.data.model.GenRequest
 import com.naigen.app.data.model.GenResult
 import com.naigen.app.data.repository.GenProgress
+import com.naigen.app.data.repository.NaiRepository
 import com.naigen.app.data.styles.StyleRegistry
 import com.naigen.app.service.GenerationBus
 import com.naigen.app.service.GenerationService
@@ -117,7 +118,7 @@ class GenerateViewModel(app: Application) : AndroidViewModel(app) {
     fun updateNoiseSchedule(v: String?) = _input.update { it.copy(noiseSchedule = v) }
     fun updateVarietyPlus(v: Boolean) = _input.update { it.copy(varietyPlus = v) }
     fun updateCustomArtist(v: String) = _input.update { it.copy(customArtist = v) }
-    fun updateVariants(v: Int) = _input.update { it.copy(variants = v.coerceIn(1, 99)) }
+    fun updateVariants(v: Int) = _input.update { it.copy(variants = v.coerceIn(1, NaiRepository.MAX_VARIANTS)) }
     fun clearToast() { _toast.value = null }
     fun clearResults() {
         GenerationBus.reset()

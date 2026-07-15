@@ -29,6 +29,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.naigen.app.data.repository.GenProgress
+import com.naigen.app.data.repository.NaiRepository
 import com.naigen.app.data.styles.SizeOptions
 import com.naigen.app.data.styles.StyleRegistry
 import com.naigen.app.ui.components.GroupedList
@@ -270,14 +271,14 @@ private fun VariantsInputRow(variants: Int, onChange: (Int) -> Unit, isLast: Boo
         }
         Spacer(Modifier.width(8.dp))
 
-        // 输入框（支持自定义张数 1-99）
+        // 输入框（支持自定义张数 1-6）
         OutlinedTextField(
             value = text,
             onValueChange = { input ->
                 // 只允许 1-2 位数字
                 if (input.all { it.isDigit() } && input.length <= 2) {
                     text = input
-                    val v = input.toIntOrNull()?.coerceIn(1, 99) ?: 1
+                    val v = input.toIntOrNull()?.coerceIn(1, NaiRepository.MAX_VARIANTS) ?: 1
                     onChange(v)
                 }
             },
@@ -298,7 +299,7 @@ private fun VariantsInputRow(variants: Int, onChange: (Int) -> Unit, isLast: Boo
                 .size(32.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                .clickable { onChange((variants + 1).coerceAtMost(99)) },
+                .clickable { onChange((variants + 1).coerceAtMost(NaiRepository.MAX_VARIANTS)) },
             contentAlignment = Alignment.Center
         ) {
             Text("+", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
