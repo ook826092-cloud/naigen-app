@@ -13,6 +13,7 @@ import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -23,13 +24,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.naigen.app.ui.navigation.SubDest
-import com.naigen.app.ui.components.GroupedList
-import com.naigen.app.ui.components.ListRow
 
 @Composable
 fun SettingsScreen(vm: SettingsViewModel = viewModel(), nav: NavController) {
@@ -48,15 +48,15 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel(), nav: NavController) {
             modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 12.dp)
         )
 
-        // ── API 配置 ──
-        GroupedList(title = "API") {
-            SettingItem(
+        // ── API ──
+        SettingsGroup(title = "API") {
+            SettingRow(
                 icon = Icons.Outlined.Key,
                 title = "API Token",
                 subtitle = if (state.token.isBlank()) "未配置" else "已配置 (${state.token.take(8)}…)",
                 onClick = { nav.navigate(SubDest.ApiConfig.route) }
             )
-            SettingItem(
+            SettingRow(
                 icon = Icons.Outlined.Info,
                 title = "API 地址",
                 subtitle = state.baseUrl,
@@ -65,9 +65,9 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel(), nav: NavController) {
             )
         }
 
-        // ── 风格管理 ──
-        GroupedList(title = "画风") {
-            SettingItem(
+        // ── 风格 ──
+        SettingsGroup(title = "画风") {
+            SettingRow(
                 icon = Icons.Outlined.Palette,
                 title = "风格管理",
                 subtitle = "内置 7 + 社区 29 + 自定义",
@@ -76,9 +76,9 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel(), nav: NavController) {
             )
         }
 
-        // ── 后台保活 ──
-        GroupedList(title = "性能") {
-            SettingItem(
+        // ── 性能 ──
+        SettingsGroup(title = "性能") {
+            SettingRow(
                 icon = Icons.Outlined.Shield,
                 title = "后台保活",
                 subtitle = "厂商识别 + 自启动配置",
@@ -88,14 +88,14 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel(), nav: NavController) {
         }
 
         // ── 关于 ──
-        GroupedList(title = "关于") {
-            SettingItem(
+        SettingsGroup(title = "关于") {
+            SettingRow(
                 icon = Icons.Outlined.Info,
                 title = "关于本应用",
                 subtitle = "版本、源码、许可证",
                 onClick = { nav.navigate(SubDest.About.route) }
             )
-            SettingItem(
+            SettingRow(
                 icon = Icons.Outlined.MenuBook,
                 title = "说明文档",
                 subtitle = "GitHub 仓库 README（7 种语言）",
@@ -105,42 +105,90 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel(), nav: NavController) {
         }
 
         Text(
-            "NaiGen · v2.1.0 · MIT License",
+            "NaiGen · ${state.lastStyleKey} · MIT License",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 24.dp, bottom = 16.dp),
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            textAlign = TextAlign.Center
         )
     }
 }
 
+/**
+ * 一个分组容器：标题 + 圆角白底卡片
+ */
 @Composable
-private fun SettingItem(
+private fun SettingsGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Text(
+        title,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 20.dp, bottom = 6.dp, top = 12.dp)
+    )
+    Column(
+        modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface)
+    ) {
+        content()
+    }
+}
+
+/**
+ * 一行设置项：左边 icon，中间 title + subtitle，右边箭头
+ */
+@Composable
+private fun SettingRow(
     icon: ImageVector,
     title: String,
     subtitle: String,
     isLast: Boolean = false,
     onClick: () -> Unit
 ) {
-    ListRow(
-        label = title,
-        value = null,
-        isLast = isLast,
-        onClick = onClick,
-        trailing = {
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Icon(
-                Icons.Outlined.ChevronRight,
+                imageVector = icon,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(22.dp)
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Icon(
+                imageVector = Icons.Outlined.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
             )
         }
-    )
-    Text(
-        subtitle,
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 56.dp, end = 16.dp, bottom = 10.dp, top = -4.dp)
-    )
+        if (!isLast) {
+            HorizontalDivider(
+                modifier = Modifier.padding(start = 50.dp, end = 16.dp),
+                thickness = 0.5.dp,
+                color = MaterialTheme.colorScheme.outlineVariant
+            )
+        }
+    }
 }
