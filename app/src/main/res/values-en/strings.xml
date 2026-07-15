@@ -152,4 +152,74 @@
     <string name="service_failed_title">Generation failed</string>
     <string name="channel_generation">Generation progress</string>
     <string name="channel_result">Generation result</string>
+
+    <!-- Generate Screen 补充 -->
+    <string name="gen_prompt_placeholder">Enter positive prompt, comma-separated\ne.g.: 1girl, solo, silver hair, masterpiece…</string>
+    <string name="gen_negative_placeholder">Negative prompt (optional)</string>
+    <string name="gen_count">Count</string>
+    <string name="gen_count_unit">imgs</string>
+    <string name="gen_expand_label">Expand</string>
+    <string name="gen_collapse_label">Collapse</string>
+    <string name="gen_custom_artist_label">Custom artist string</string>
+    <string name="gen_custom_artist_placeholder">Override style preset, e.g. by wlop, artist:mika pikazo</string>
+    <string name="gen_cancel">Cancel</string>
+    <string name="gen_generating">Generating…</string>
+    <string name="gen_variant_count">Generate %1$d variants</string>
+
+    <!-- Album 补充 -->
+    <string name="album_no_image">No image</string>
+    <string name="album_clear_title">Clear album</string>
+    <string name="album_clear_confirm">Delete all %1$d images? This cannot be undone.</string>
+    <string name="album_close">Close</string>
+
+    <!-- Style Manager 补充 -->
+    <string name="style_search_hint">Search style name / key</string>
+    <string name="style_nsfw_show">Show NSFW styles</string>
+    <string name="style_delete_title">Delete custom style</string>
+    <string name="style_delete_confirm">Delete "%1$s"?</string>
+    <string name="style_add_title">New custom style</string>
+    <string name="style_name_label">Style name *</string>
+    <string name="style_artist_label">Artist string * (e.g.: by wlop, artist:mika pikazo)</string>
+    <string name="style_pos_prefix_label">Positive prompt prefix (optional)</string>
+    <string name="style_neg_prompt_label">Negative prompt (optional)</string>
+
+    <!-- API Config 补充 -->
+    <string name="api_provider_label">Provider</string>
+    <string name="api_show_plaintext">Show plaintext</string>
+    <string name="api_nsfw_title">Show NSFW styles</string>
+    <string name="api_nsfw_desc">When enabled, questionable/explicit styles appear in style manager</string>
+
+    <!-- Theme -->
+    <string name="theme_title">Dark mode</string>
+
+    <!-- About 补充 -->
+    <string name="about_subtitle_text">Android image generation tool</string>
+
+    <!-- Logs 补充 -->
+    <string name="logs_tab_app">App logs</string>
+    <string name="logs_tab_network">Network logs</string>
+    <string name="logs_no_network">No network requests</string>
+    <string name="logs_current">Current log</string>
+    <string name="logs_select_action">Select action</string>
+    <string name="logs_copy">Copy</string>
+    <string name="logs_share">Share</string>
+    <string name="logs_export">Export</string>
+    <string name="logs_deleted">Deleted</string>
+    <string name="logs_cleared">Cleared</string>
+    <string name="logs_time_label">Time</string>
+    <string name="logs_duration_label">Duration</string>
+    <string name="logs_tab_request_header">Request Headers</string>
+    <string name="logs_tab_request_body">Request Body</string>
+    <string name="logs_tab_response_header">Response Headers</string>
+    <string name="logs_tab_response_body">Response Body</string>
+    <string name="logs_auto_delete">Auto-delete settings</string>
+    <string name="logs_time_logic">Time logic</string>
+    <string name="logs_storage_logic">Storage logic</string>
+    <string name="logs_retention_time">Retention time</string>
+    <string name="logs_max_storage">Max storage</string>
+    <string name="logs_no_limit">No limit</string>
+    <string name="logs_which_first">Whichever comes first</string>
+
+    <!-- Common 补充 -->
+    <string name="common_got_it">Got it</string>
 </resources>

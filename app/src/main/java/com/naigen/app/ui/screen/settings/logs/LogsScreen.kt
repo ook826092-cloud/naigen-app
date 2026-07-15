@@ -28,6 +28,8 @@ import com.naigen.app.util.AppLog
 import com.naigen.app.util.DateUtils
 import kotlinx.coroutines.launch
 import java.io.File
+import androidx.compose.ui.res.stringResource
+import com.naigen.app.R
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -80,7 +82,7 @@ fun LogsScreen(nav: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("日志") },
+                title = { Text(stringResource(R.string.logs_title)) },
                 navigationIcon = { IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.Outlined.ArrowBack, contentDescription = "返回") } },
                 actions = {
                     IconButton(onClick = { appFiles = AppLog.getAppFiles(); networkFiles = AppLog.getNetworkFiles() }) { Icon(Icons.Outlined.Refresh, contentDescription = "刷新") }
@@ -94,7 +96,7 @@ fun LogsScreen(nav: NavController) {
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
             TabRow(selectedTabIndex = tab) {
-                Tab(selected = tab == 0, onClick = { tab = 0; appFiles = AppLog.getAppFiles() }, text = { Text("应用日志") })
+                Tab(selected = tab == 0, onClick = { tab = 0; appFiles = AppLog.getAppFiles() }, text = { Text(stringResource(R.string.logs_tab_app)) })
                 Tab(selected = tab == 1, onClick = { tab = 1; networkFiles = AppLog.getNetworkFiles() }, text = { Text("请求日志 (${networkFiles.size})") })
             }
 
@@ -125,7 +127,7 @@ fun LogsScreen(nav: NavController) {
                 1 -> {
                     if (networkFiles.isEmpty()) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("暂无网络请求", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.logs_no_network)), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     } else {
                         LazyColumn(
@@ -164,7 +166,7 @@ fun LogsScreen(nav: NavController) {
     if (longPressCurrent) {
         AlertDialog(
             onDismissRequest = { longPressCurrent = false },
-            title = { Text("当前日志") }, text = { Text("选择操作") },
+            title = { Text(stringResource(R.string.logs_current)) }, text = { Text(stringResource(R.string.logs_select_action)) },
             confirmButton = {
                 Row {
                     TextButton(onClick = {
@@ -173,34 +175,34 @@ fun LogsScreen(nav: NavController) {
                         cm?.setPrimaryClip(android.content.ClipData.newPlainText("logs", text))
                         scope.launch { snackbarHostState.showSnackbar("已复制") }
                         longPressCurrent = false
-                    }) { Text("复制") }
-                    TextButton(onClick = { AppLog.clearAppBuffer(); longPressCurrent = false; scope.launch { snackbarHostState.showSnackbar("已清空") } }) { Text("清空", color = MaterialTheme.colorScheme.error) }
+                    }) { Text(stringResource(R.string.logs_copy)) }
+                    TextButton(onClick = { AppLog.clearAppBuffer(); longPressCurrent = false; scope.launch { snackbarHostState.showSnackbar("已清空") } }) { Text(stringResource(R.string.logs_cleared)), color = MaterialTheme.colorScheme.error) }
                 }
             },
-            dismissButton = { TextButton(onClick = { longPressCurrent = false }) { Text("取消") } }
+            dismissButton = { TextButton(onClick = { longPressCurrent = false }) { Text(stringResource(R.string.common_cancel)) } }
         )
     }
     longPressNetwork?.let { entry ->
         AlertDialog(
             onDismissRequest = { longPressNetwork = null },
             title = { Text(entry.url.take(50), style = MaterialTheme.typography.labelMedium) },
-            text = { Text("选择操作") },
+            text = { Text(stringResource(R.string.logs_select_action)) },
             confirmButton = {
                 Row {
                     TextButton(onClick = {
                         val file = AppLog.getFile(entry.fileName, isNetwork = true)
                         if (file != null) shareFile(ctx, file, entry.fileName)
                         longPressNetwork = null
-                    }) { Text("分享") }
+                    }) { Text(stringResource(R.string.logs_share)) }
                     TextButton(onClick = {
                         val file = AppLog.getFile(entry.fileName, isNetwork = true)
                         if (file != null) { scope.launch { val ok = exportToDownloads(ctx, file, entry.fileName); snackbarHostState.showSnackbar(if (ok) "已导出" else "导出失败") } }
                         longPressNetwork = null
-                    }) { Text("导出") }
-                    TextButton(onClick = { AppLog.deleteFile(entry.fileName, isNetwork = true); networkEntries = AppLog.getNetworkEntries(); longPressNetwork = null; scope.launch { snackbarHostState.showSnackbar("已删除") } }) { Text("删除", color = MaterialTheme.colorScheme.error) }
+                    }) { Text(stringResource(R.string.logs_export)) }
+                    TextButton(onClick = { AppLog.deleteFile(entry.fileName, isNetwork = true); networkEntries = AppLog.getNetworkEntries(); longPressNetwork = null; scope.launch { snackbarHostState.showSnackbar("已删除") } }) { Text(stringResource(R.string.logs_deleted)), color = MaterialTheme.colorScheme.error) }
                 }
             },
-            dismissButton = { TextButton(onClick = { longPressNetwork = null }) { Text("取消") } }
+            dismissButton = { TextButton(onClick = { longPressNetwork = null }) { Text(stringResource(R.string.common_cancel)) } }
         )
     }
 }
@@ -377,23 +379,23 @@ private fun ActionDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(label, style = MaterialTheme.typography.labelMedium) },
-        text = { Text("选择操作") },
+        text = { Text(stringResource(R.string.logs_select_action)) },
         confirmButton = {
             Row {
                 TextButton(onClick = {
                     val file = AppLog.getFile(fileName, isNetwork = isNet)
                     if (file != null) shareFile(ctx, file, fileName)
                     onDismiss()
-                }) { Text("分享") }
+                }) { Text(stringResource(R.string.logs_share)) }
                 TextButton(onClick = {
                     val file = AppLog.getFile(fileName, isNetwork = isNet)
                     if (file != null) { scope.launch { val ok = exportToDownloads(ctx, file, fileName); snackbarHostState.showSnackbar(if (ok) "已导出" else "导出失败") } }
                     onDismiss()
-                }) { Text("导出") }
-                TextButton(onClick = { AppLog.deleteFile(fileName, isNetwork = isNet); onActionDone(); onDismiss() }) { Text("删除", color = MaterialTheme.colorScheme.error) }
+                }) { Text(stringResource(R.string.logs_export)) }
+                TextButton(onClick = { AppLog.deleteFile(fileName, isNetwork = isNet); onActionDone(); onDismiss() }) { Text(stringResource(R.string.logs_deleted)), color = MaterialTheme.colorScheme.error) }
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) } }
     )
 }
 

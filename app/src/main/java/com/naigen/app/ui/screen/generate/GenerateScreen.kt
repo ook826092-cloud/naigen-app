@@ -77,7 +77,7 @@ fun GenerateScreen(vm: GenerateViewModel = viewModel()) {
             OutlinedTextField(
                 value = state.prompt,
                 onValueChange = vm::updatePrompt,
-                placeholder = { Text("输入正向提示词，逗号分隔\n例如：1girl, solo, silver hair, masterpiece…", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                placeholder = { Text(stringResource(R.string.gen_prompt_placeholder), color = MaterialTheme.colorScheme.onSurfaceVariant) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 6.dp)
@@ -90,7 +90,7 @@ fun GenerateScreen(vm: GenerateViewModel = viewModel()) {
             OutlinedTextField(
                 value = state.negative,
                 onValueChange = vm::updateNegative,
-                placeholder = { Text("负面提示词（可选）", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                placeholder = { Text(stringResource(R.string.gen_negative_placeholder), color = MaterialTheme.colorScheme.onSurfaceVariant) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 6.dp)
@@ -254,7 +254,7 @@ private fun VariantsInputRow(variants: Int, onChange: (Int) -> Unit, isLast: Boo
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("张数", style = MaterialTheme.typography.bodyLarge)
+        Text(stringResource(R.string.gen_count), style = MaterialTheme.typography.bodyLarge)
         Spacer(Modifier.weight(1f))
 
         // − 按钮
@@ -304,7 +304,7 @@ private fun VariantsInputRow(variants: Int, onChange: (Int) -> Unit, isLast: Boo
             Text("+", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
         }
         Spacer(Modifier.width(8.dp))
-        Text("张", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(R.string.gen_count_unit), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     if (!isLast) {
         HorizontalDivider(
@@ -327,7 +327,7 @@ private fun AdvancedParams(state: GenerateUiState, vm: GenerateViewModel, allSty
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(if (expanded) "收起" else "展开", style = MaterialTheme.typography.bodyLarge)
+            Text(if (expanded) stringResource(R.string.gen_collapse_label) else stringResource(R.string.gen_expand_label), style = MaterialTheme.typography.bodyLarge)
             Spacer(Modifier.weight(1f))
             Text(
                 "Steps / Scale / CFG / Seed / Sampler / …",
@@ -343,12 +343,12 @@ private fun AdvancedParams(state: GenerateUiState, vm: GenerateViewModel, allSty
 
             // 自定义画师串
             Column(Modifier.padding(16.dp)) {
-                Text("自定义画师串", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.gen_custom_artist_label), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
                 OutlinedTextField(
                     value = state.customArtist,
                     onValueChange = vm::updateCustomArtist,
-                    placeholder = { Text("覆盖风格预设，例如 by wlop, artist:mika pikazo") },
+                    placeholder = { Text(stringResource(R.string.gen_custom_artist_placeholder)) },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2,
                     shape = RoundedCornerShape(8.dp),

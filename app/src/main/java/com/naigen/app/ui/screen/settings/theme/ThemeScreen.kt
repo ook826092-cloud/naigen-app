@@ -26,6 +26,8 @@ import androidx.navigation.NavController
 import com.naigen.app.ui.screen.settings.SettingsViewModel
 import com.naigen.app.ui.theme.ThemeMode
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.stringResource
+import com.naigen.app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,7 +39,7 @@ fun ThemeScreen(vm: SettingsViewModel = viewModel(), nav: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("深色模式") },
+                title = { Text(stringResource(R.string.theme_title)) },
                 navigationIcon = {
                     IconButton(onClick = { nav.popBackStack() }) {
                         Icon(Icons.Outlined.ArrowBack, contentDescription = "返回")

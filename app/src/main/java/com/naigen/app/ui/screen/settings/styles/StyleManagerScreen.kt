@@ -67,7 +67,7 @@ fun StyleManagerScreen(vm: StyleManagerViewModel = viewModel(), nav: NavControll
             OutlinedTextField(
                 value = state.searchQuery,
                 onValueChange = vm::search,
-                placeholder = { Text("搜索风格名 / key") },
+                placeholder = { Text(stringResource(R.string.style_search_hint)) },
                 leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -86,7 +86,7 @@ fun StyleManagerScreen(vm: StyleManagerViewModel = viewModel(), nav: NavControll
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("显示 NSFW 风格", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.style_nsfw_show)), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                 Switch(checked = state.nsfwEnabled, onCheckedChange = vm::setNsfw)
             }
 
@@ -149,7 +149,7 @@ fun StyleManagerScreen(vm: StyleManagerViewModel = viewModel(), nav: NavControll
     deleteTarget?.let { style ->
         AlertDialog(
             onDismissRequest = { deleteTarget = null },
-            title = { Text("删除自定义风格") },
+            title = { Text(stringResource(R.string.style_delete_title)) },
             text = { Text("确定删除「${style.name}」？") },
             confirmButton = {
                 TextButton(onClick = {
@@ -157,7 +157,7 @@ fun StyleManagerScreen(vm: StyleManagerViewModel = viewModel(), nav: NavControll
                     deleteTarget = null
                 }) { Text("删除", color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("取消") } }
+            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text(stringResource(R.string.style_cancel)) } }
         )
     }
 }
@@ -259,16 +259,16 @@ private fun AddCustomStyleDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("新建自定义风格") },
+        title = { Text(stringResource(R.string.style_add_title)) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("风格名 *") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(value = artist, onValueChange = { artist = it }, label = { Text("画师串 * (例如: by wlop, artist:mika pikazo)") }, minLines = 2, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(value = posPrefix, onValueChange = { posPrefix = it }, label = { Text("正向提示词前缀 (可选)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = posPrefix, onValueChange = { posPrefix = it }, label = { Text(stringResource(R.string.style_pos_prefix_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(value = negPrompt, onValueChange = { negPrompt = it }, label = { Text("负面提示词 (可选)") }, minLines = 2, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = negPrompt, onValueChange = { negPrompt = it }, label = { Text(stringResource(R.string.style_neg_prompt_label)) }, minLines = 2, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
                 Row {
                     OutlinedTextField(value = steps, onValueChange = { steps = it }, label = { Text("Steps") }, singleLine = true, modifier = Modifier.weight(1f))
@@ -315,8 +315,8 @@ private fun AddCustomStyleDialog(
                     }
                 },
                 enabled = name.isNotBlank() && artist.isNotBlank()
-            ) { Text("保存") }
+            ) { Text(stringResource(R.string.style_save)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.style_cancel)) } }
     )
 }

@@ -279,6 +279,11 @@ class GenerationService : Service() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
             try {
                 notification.extras.putString("android.locusId", "naigen_generation")
+                // 小米/红米超级岛: 需要 ongoing + category=progress + 额外标记
+                notification.extras.putBoolean("miui.flags_is_foreground_service", true)
+                notification.extras.putString("miui.flags_progress_title", "NaiGen")
+                notification.extras.putString("miui.flags_progress_content", text)
+                // OPPO/vivo 灵动岛: locusId + ongoing
             } catch (_: Throwable) {}
         }
 

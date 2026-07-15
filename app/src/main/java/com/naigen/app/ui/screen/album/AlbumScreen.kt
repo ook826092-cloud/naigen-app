@@ -143,7 +143,7 @@ fun AlbumScreen(vm: AlbumViewModel = viewModel()) {
     if (confirmDeleteAll) {
         AlertDialog(
             onDismissRequest = { confirmDeleteAll = false },
-            title = { Text("清空相册") },
+            title = { Text(stringResource(R.string.album_clear_title)) },
             text = { Text("将删除所有 ${items.size} 张图片，不可恢复。确定继续？") },
             confirmButton = {
                 TextButton(onClick = {
@@ -178,7 +178,7 @@ private fun AlbumThumb(item: HistoryEntity, onClick: () -> Unit) {
             )
         } else {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("无图", style = MaterialTheme.typography.labelSmall)
+                Text(stringResource(R.string.album_no_image)), style = MaterialTheme.typography.labelSmall)
             }
         }
     }
@@ -234,6 +234,6 @@ private fun AlbumDetailDialog(
                 }
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("关闭") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.album_close)) } }
     )
 }

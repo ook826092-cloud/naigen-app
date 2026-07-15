@@ -24,6 +24,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.size
+import androidx.compose.ui.res.stringResource
+import com.naigen.app.R
 
 /**
  * 参数名旁的问号图标，点击弹出说明对话框。
@@ -64,7 +66,7 @@ fun HelpIcon(
             title = { Text(title, fontWeight = FontWeight.SemiBold) },
             text = { Text(description) },
             confirmButton = {
-                TextButton(onClick = { showDialog = false }) { Text("明白了") }
+                TextButton(onClick = { showDialog = false }) { Text(stringResource(R.string.common_got_it)) }
             }
         )
     }

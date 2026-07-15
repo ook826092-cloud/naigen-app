@@ -55,7 +55,7 @@ fun ApiConfigScreen(vm: SettingsViewModel = viewModel(), nav: NavController) {
         ) {
             // 服务商选择（目前只有 API）
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("服务商", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.api_provider_label), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
                 OutlinedTextField(
                     value = "API",
@@ -102,7 +102,7 @@ fun ApiConfigScreen(vm: SettingsViewModel = viewModel(), nav: NavController) {
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("显示明文", style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.api_show_plaintext), style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.weight(1f))
                     Switch(checked = showToken, onCheckedChange = { showToken = it })
                 }
@@ -116,8 +116,8 @@ fun ApiConfigScreen(vm: SettingsViewModel = viewModel(), nav: NavController) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("显示 NSFW 风格", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-                    Text("开启后风格管理页会显示 questionable / explicit 标记的风格", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.api_nsfw_title), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.api_nsfw_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = state.nsfwEnabled, onCheckedChange = vm::setNsfw)
             }
