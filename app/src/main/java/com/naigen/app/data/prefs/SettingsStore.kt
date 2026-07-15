@@ -32,6 +32,7 @@ class SettingsStore(private val context: Context) {
         val LAST_PROMPT = stringPreferencesKey("last_prompt")
         val LAST_NEGATIVE = stringPreferencesKey("last_negative")
         val NSFW_ENABLED = stringPreferencesKey("nsfw_enabled")
+        val THEME_MODE = stringPreferencesKey("theme_mode")  // "system" / "light" / "dark"
     }
 
     val baseUrl: Flow<String> = context.dataStore.data.map { it[Keys.BASE_URL] ?: DEFAULT_BASE_URL }
@@ -41,12 +42,14 @@ class SettingsStore(private val context: Context) {
     val lastPrompt: Flow<String> = context.dataStore.data.map { it[Keys.LAST_PROMPT] ?: "" }
     val lastNegative: Flow<String> = context.dataStore.data.map { it[Keys.LAST_NEGATIVE] ?: "" }
     val nsfwEnabled: Flow<Boolean> = context.dataStore.data.map { it[Keys.NSFW_ENABLED] == "1" }
+    val themeMode: Flow<String> = context.dataStore.data.map { it[Keys.THEME_MODE] ?: "system" }
 
     suspend fun setToken(value: String) = context.dataStore.edit { it[Keys.TOKEN] = value.trim() }
     suspend fun setBaseUrl(value: String) = context.dataStore.edit { it[Keys.BASE_URL] = value.trim() }
     suspend fun setLastStyle(value: String) = context.dataStore.edit { it[Keys.LAST_STYLE] = value }
     suspend fun setLastSize(value: String) = context.dataStore.edit { it[Keys.LAST_SIZE] = value }
     suspend fun setLastPrompt(value: String) = context.dataStore.edit { it[Keys.LAST_PROMPT] = value }
+    suspend fun setThemeMode(value: String) = context.dataStore.edit { it[Keys.THEME_MODE] = value }
     suspend fun setLastNegative(value: String) = context.dataStore.edit { it[Keys.LAST_NEGATIVE] = value }
     suspend fun setNsfwEnabled(value: Boolean) =
         context.dataStore.edit { it[Keys.NSFW_ENABLED] = if (value) "1" else "0" }

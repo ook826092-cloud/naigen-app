@@ -15,24 +15,27 @@ data class SettingsUiState(
     val token: String = "",
     val baseUrl: String = SettingsStore.DEFAULT_BASE_URL,
     val nsfwEnabled: Boolean = false,
-    val lastStyleKey: String = "2.5d"
+    val lastStyleKey: String = "2.5d",
+    val themeMode: String = "system"
 )
 
 class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     private val settings: SettingsStore = getApplication<NaiApplication>().settingsStore
 
     val state: StateFlow<SettingsUiState> = combine(
-        settings.token, settings.baseUrl, settings.nsfwEnabled, settings.lastStyle
-    ) { token, baseUrl, nsfwEnabled, lastStyle ->
+        settings.token, settings.baseUrl, settings.nsfwEnabled, settings.lastStyle, settings.themeMode
+    ) { token, baseUrl, nsfwEnabled, lastStyle, themeMode ->
         SettingsUiState(
             token = token,
             baseUrl = baseUrl,
             nsfwEnabled = nsfwEnabled,
-            lastStyleKey = lastStyle
+            lastStyleKey = lastStyle,
+            themeMode = themeMode
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, SettingsUiState())
 
     fun setToken(v: String) = viewModelScope.launch { settings.setToken(v) }
     fun setBaseUrl(v: String) = viewModelScope.launch { settings.setBaseUrl(v) }
     fun setNsfw(v: Boolean) = viewModelScope.launch { settings.setNsfwEnabled(v) }
+    fun setThemeMode(v: String) = viewModelScope.launch { settings.setThemeMode(v) }
 }

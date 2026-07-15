@@ -129,6 +129,13 @@ fun AppNavGraph() {
                 popExitTransition = { androidx.compose.animation.slideOutHorizontally { it } }
             ) { LanguageScreen(nav = nav) }
             composable(
+                SubDest.Theme.route,
+                enterTransition = { androidx.compose.animation.slideInHorizontally { it } },
+                exitTransition = { androidx.compose.animation.slideOutHorizontally { -it / 3 } },
+                popEnterTransition = { androidx.compose.animation.slideInHorizontally { -it / 3 } },
+                popExitTransition = { androidx.compose.animation.slideOutHorizontally { it } }
+            ) { com.naigen.app.ui.screen.settings.theme.ThemeScreen(nav = nav) }
+            composable(
                 SubDest.Logs.route,
                 enterTransition = { androidx.compose.animation.slideInHorizontally { it } },
                 exitTransition = { androidx.compose.animation.slideOutHorizontally { -it / 3 } },

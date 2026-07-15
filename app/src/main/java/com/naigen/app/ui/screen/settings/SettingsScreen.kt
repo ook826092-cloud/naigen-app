@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Key
@@ -87,6 +88,12 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel(), nav: NavController) {
 
         // ── 关于 ──
         SettingsGroup(title = stringResource(R.string.settings_about_group)) {
+            SettingRow(
+                icon = Icons.Outlined.DarkMode,
+                title = "深色模式",
+                subtitle = "跟随系统 / 浅色 / 深色",
+                onClick = { nav.navigate(SubDest.Theme.route) }
+            )
             SettingRow(
                 icon = Icons.Outlined.Public,
                 title = stringResource(R.string.settings_language),

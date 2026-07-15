@@ -63,17 +63,13 @@ class NaiRepository(
         onProgress: (GenProgress) -> Unit = {}
     ): GenResult = coroutineScope {
         val startTime = System.currentTimeMillis()
-        com.naigen.app.util.AppLog.i("NaiRepo", "━━━ generate() 开始 ━━━")
-        com.naigen.app.util.AppLog.d("NaiRepo", "  prompt=${request.prompt.take(80)}")
-        com.naigen.app.util.AppLog.d("NaiRepo", "  styleKey=${request.styleKey} customArtist=${request.customArtist.take(30)}")
-        com.naigen.app.util.AppLog.d("NaiRepo", "  sizeKey=${request.sizeKey} steps=${request.steps} scale=${request.scale} cfg=${request.cfg}")
-        com.naigen.app.util.AppLog.d("NaiRepo", "  sampler=${request.sampler} seed=${request.seed} variants=$variantIndex/$totalVariants")
+        com.naigen.app.util.AppLog.i("NaiRepo", "开始生成: style=${request.styleKey} size=${request.sizeKey} variants=$variantIndex/$totalVariants")
 
         val token = settings.token.first()
         val baseUrl = settings.baseUrl.first()
 
         if (token.isBlank()) {
-            com.naigen.app.util.AppLog.e("NaiRepo", "  ✗ Token 为空, 终止")
+            com.naigen.app.util.AppLog.e("NaiRepo", "失败: Token 为空")
             return@coroutineScope GenResult(
                 success = false,
                 styleKey = request.styleKey,
@@ -83,13 +79,12 @@ class NaiRepository(
                 errorMessage = "未配置 API Token，请在设置页填入 STA1N-... 格式的密钥"
             )
         }
-        com.naigen.app.util.AppLog.d("NaiRepo", "  baseUrl=$baseUrl token=${token.take(10)}...")
 
         // ── 1) 风格路由 ──
         val styleKey = request.customArtist.ifBlank { request.styleKey }
         val preset = StyleRegistry.get(styleKey)
         val artistString = StyleRegistry.resolveArtistString(styleKey)
-        com.naigen.app.util.AppLog.d("NaiRepo", "  [步骤1] 风格路由: styleKey=$styleKey → preset=${preset?.name ?: "自定义"} artistString=${artistString.take(60)}...")
+        com.naigen.app.util.AppLog.i("NaiRepo", "风格路由: ${styleKey} → ${preset?.name ?: "自定义画师串"}")
 
         // ── 2) 参数合并 ──
         val size = SizeOptions.get(request.sizeKey)
@@ -99,7 +94,6 @@ class NaiRepository(
         val useCfg = request.cfg ?: defaultParams.cfg
         val useSampler = request.sampler ?: defaultParams.sampler
         val useNoiseSchedule = request.noiseSchedule ?: "karras"
-        com.naigen.app.util.AppLog.d("NaiRepo", "  [步骤2] 参数合并: steps=$useSteps scale=$useScale cfg=$useCfg sampler=$useSampler size=${size.key}(${size.cost}点)")
 
         val useNegative = request.negativePrompt.ifBlank {
             preset?.negativePrompt?.ifBlank { "" } ?: ""
@@ -119,16 +113,12 @@ class NaiRepository(
             seed = request.seed, sm = request.sm, smDynamic = request.smDynamic,
             uncondScale = request.uncondScale, varietyPlus = request.varietyPlus
         )
-        com.naigen.app.util.AppLog.d("NaiRepo", "  [步骤3] 构建 CreateJobRequest 完成")
-
         try {
-            // ── 4) 创建任务 ──
             onProgress(GenProgress.Creating(variantIndex, totalVariants))
-            com.naigen.app.util.AppLog.d("NaiRepo", "  [步骤4] 调用 createJob()...")
             val createResp = client.createJob(baseUrl, body)
             val jobId = createResp.id
             if (jobId.isNullOrBlank()) {
-                com.naigen.app.util.AppLog.e("NaiRepo", "  ✗ createJob 失败: ${createResp.error}")
+                com.naigen.app.util.AppLog.e("NaiRepo", "创建任务失败: ${createResp.error}")
                 return@coroutineScope GenResult(
                     success = false, styleKey = styleKey, styleName = styleName,
                     sizeKey = request.sizeKey,
@@ -136,10 +126,8 @@ class NaiRepository(
                     errorMessage = createResp.error ?: "创建任务失败，未返回 job id"
                 )
             }
-            com.naigen.app.util.AppLog.i("NaiRepo", "  ✓ createJob 成功: jobId=$jobId")
+            com.naigen.app.util.AppLog.i("NaiRepo", "任务已创建: jobId=$jobId")
 
-            // ── 5) 轮询 ──
-            com.naigen.app.util.AppLog.d("NaiRepo", "  [步骤5] 开始轮询, 间隔=${POLL_INTERVAL_MS}ms 超时=${MAX_POLL_TIME_MS}ms")
             var elapsed = 0
             while (elapsed * 1000L < MAX_POLL_TIME_MS) {
                 coroutineContext.ensureActive()
@@ -150,10 +138,9 @@ class NaiRepository(
                 val status = client.pollJob(baseUrl, jobId, token)
                 when (status.status) {
                     "done" -> {
-                        com.naigen.app.util.AppLog.i("NaiRepo", "  ✓ 轮询完成: done (${elapsed}s)")
                         val imageUrl = status.imageUrl
                         if (imageUrl.isNullOrBlank()) {
-                            com.naigen.app.util.AppLog.e("NaiRepo", "  ✗ done 但 imageUrl 为空")
+                            com.naigen.app.util.AppLog.e("NaiRepo", "任务完成但 imageUrl 为空")
                             return@coroutineScope GenResult(
                                 success = false, styleKey = styleKey, styleName = styleName,
                                 sizeKey = request.sizeKey,
@@ -161,11 +148,10 @@ class NaiRepository(
                                 jobId = jobId, errorMessage = "任务完成但未返回 imageUrl"
                             )
                         }
-                        com.naigen.app.util.AppLog.d("NaiRepo", "  [步骤6] 下载图片: $imageUrl")
                         onProgress(GenProgress.Downloading(variantIndex, totalVariants))
                         val bytes = client.downloadImage(baseUrl, imageUrl)
                         if (bytes == null) {
-                            com.naigen.app.util.AppLog.e("NaiRepo", "  ✗ 下载失败")
+                            com.naigen.app.util.AppLog.e("NaiRepo", "下载图片失败")
                             return@coroutineScope GenResult(
                                 success = false, styleKey = styleKey, styleName = styleName,
                                 sizeKey = request.sizeKey,
@@ -175,8 +161,7 @@ class NaiRepository(
                         }
                         val fullUrl = if (imageUrl.startsWith("http")) imageUrl else "${baseUrl.trimEnd('/')}$imageUrl"
                         val genTime = System.currentTimeMillis() - startTime
-                        com.naigen.app.util.AppLog.i("NaiRepo", "  ✓ 生成成功! ${bytes.size} bytes, ${genTime}ms, styleName=$styleName")
-                        com.naigen.app.util.AppLog.i("NaiRepo", "━━━ generate() 结束 ━━━")
+                        com.naigen.app.util.AppLog.i("NaiRepo", "生成成功: ${styleName}, ${bytes.size}B, ${genTime}ms")
                         return@coroutineScope GenResult(
                             success = true,
                             images = listOf(GenImage(bytes, fullUrl)),
@@ -186,7 +171,7 @@ class NaiRepository(
                         )
                     }
                     "failed" -> {
-                        com.naigen.app.util.AppLog.e("NaiRepo", "  ✗ 任务失败: ${status.error}")
+                        com.naigen.app.util.AppLog.e("NaiRepo", "任务失败: ${status.error}")
                         return@coroutineScope GenResult(
                             success = false, styleKey = styleKey, styleName = styleName,
                             sizeKey = request.sizeKey,
@@ -194,13 +179,9 @@ class NaiRepository(
                             jobId = jobId, errorMessage = status.error ?: "任务失败"
                         )
                     }
-                    else -> {
-                        com.naigen.app.util.AppLog.d("NaiRepo", "  轮询中: status=${status.status} elapsed=${elapsed}s")
-                    }
                 }
             }
-            com.naigen.app.util.AppLog.e("NaiRepo", "  ✗ 轮询超时 (${MAX_POLL_TIME_MS}ms)")
-            com.naigen.app.util.AppLog.i("NaiRepo", "━━━ generate() 结束 (超时) ━━━")
+            com.naigen.app.util.AppLog.e("NaiRepo", "轮询超时 (${MAX_POLL_TIME_MS / 1000}s)")
             GenResult(
                 success = false, styleKey = styleKey, styleName = styleName,
                 sizeKey = request.sizeKey,
@@ -210,8 +191,7 @@ class NaiRepository(
         } catch (cancellation: kotlinx.coroutines.CancellationException) {
             throw cancellation
         } catch (e: Exception) {
-            com.naigen.app.util.AppLog.e("NaiRepo", "  ✗ 异常: ${e.javaClass.simpleName}: ${e.message}", e)
-            com.naigen.app.util.AppLog.i("NaiRepo", "━━━ generate() 结束 (异常) ━━━")
+            com.naigen.app.util.AppLog.e("NaiRepo", "异常: ${e.message}", e)
             GenResult(
                 success = false, styleKey = styleKey, styleName = styleName,
                 sizeKey = request.sizeKey,

@@ -11,74 +11,94 @@ import java.util.Locale
 import java.util.concurrent.ConcurrentLinkedDeque
 
 /**
- * 应用日志工具 v3 —— 单文件追加模式。
+ * 应用日志工具 v4 —— 网络日志 + 应用日志分离。
  *
- * 只写一个文件：filesDir/logs/app.log
- * 一直追加写下去，超过 maxSizeBytes 时自动从头截断（保留后半部分）。
+ * 两套独立的日志系统：
  *
- * 记录的是代码运行日志：
- *   - 每个 suspend 函数的进入和退出
- *   - 每个网络请求的完整 request/response
- *   - 每个 Room 数据库操作
- *   - 每个 ViewModel 状态变更
- *   - 每个异常的完整堆栈
+ * 1. 网络日志 (network.log)
+ *    - 单文件，记录每一条 HTTP 请求
+ *    - 包含请求头/请求体/响应头/响应体/耗时
+ *    - 可分享为 TXT
+ *
+ * 2. 应用日志 (app_YYYYMMDD.log)
+ *    - 按天分文件，一天一个
+ *    - 只记录业务逻辑层日志（不记网络细节）
+ *    - 错误和警告额外写到单独文件 (error_YYYYMMDD.log / warn_YYYYMMDD.log)
+ *    - 可分享/删除
  */
 object AppLog {
 
     private const val TAG = "NaiGen"
-    private const val MAX_BUFFER = 1000
+    private const val MAX_BUFFER = 500
     private const val LOG_DIR = "logs"
-    private const val LOG_FILE = "app.log"
-    private const val DEFAULT_MAX_SIZE = 500 * 1024 * 1024L  // 默认 500MB
+    private const val NETWORK_FILE = "network.log"
+    private const val APP_FILE_PREFIX = "app_"
+    private const val ERROR_FILE_PREFIX = "error_"
+    private const val WARN_FILE_PREFIX = "warn_"
+    private const val FILE_SUFFIX = ".log"
+    private const val MAX_NETWORK_SIZE = 200 * 1024 * 1024L  // 网络日志最大 200MB
 
-    enum class Level { DEBUG, INFO, WARN, ERROR, NETWORK }
+    enum class Level { DEBUG, INFO, WARN, ERROR }
+    enum class LogType { APP, NETWORK }
 
     data class Entry(
         val timestamp: Long,
         val level: Level,
         val tag: String,
         val message: String,
-        val throwable: Throwable? = null
+        val throwable: Throwable? = null,
+        val type: LogType = LogType.APP
     )
 
-    private val buffer = ConcurrentLinkedDeque<Entry>()
-    private var logFile: File? = null
-    private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
+    /** 网络请求日志条目（点击可展开详情） */
+    data class NetworkEntry(
+        val timestamp: Long,
+        val method: String,
+        val url: String,
+        val requestHeaders: Map<String, String>,
+        val requestBody: String,
+        val responseCode: Int,
+        val responseHeaders: Map<String, String>,
+        val responseBody: String,
+        val durationMs: Long
+    )
 
-    var maxSizeBytes: Long = DEFAULT_MAX_SIZE
-    var maxAgeMs: Long = 0  // 0 = 不按时间删
+    private val appBuffer = ConcurrentLinkedDeque<Entry>()
+    private val networkBuffer = ConcurrentLinkedDeque<NetworkEntry>()
+    private var logDir: File? = null
+    private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
+    private val dayFormat = SimpleDateFormat("yyyyMMdd", Locale.US)
 
     fun init(context: Context) {
-        val dir = File(context.filesDir, LOG_DIR).apply { if (!exists()) mkdirs() }
-        logFile = File(dir, LOG_FILE)
-        i("AppLog", "=== 日志系统初始化, 文件: ${logFile?.absolutePath} ===")
+        logDir = File(context.filesDir, LOG_DIR).apply { if (!exists()) mkdirs() }
+        i("AppLog", "日志系统初始化")
         installCrashHandler(context)
     }
 
-    // ── 基础日志方法 ──────────────────────────────────────────────────────
+    // ── 应用日志方法 ──────────────────────────────────────────────────────
 
     fun d(tag: String, message: String) {
         Log.d(TAG, "[$tag] $message")
-        addEntry(Level.DEBUG, tag, message)
+        addAppEntry(Level.DEBUG, tag, message)
     }
 
     fun i(tag: String, message: String) {
         Log.i(TAG, "[$tag] $message")
-        addEntry(Level.INFO, tag, message)
+        addAppEntry(Level.INFO, tag, message)
     }
 
     fun w(tag: String, message: String, throwable: Throwable? = null) {
         Log.w(TAG, "[$tag] $message", throwable)
-        addEntry(Level.WARN, tag, message, throwable)
+        addAppEntry(Level.WARN, tag, message, throwable)
     }
 
     fun e(tag: String, message: String, throwable: Throwable? = null) {
         Log.e(TAG, "[$tag] $message", throwable)
-        addEntry(Level.ERROR, tag, message, throwable)
+        addAppEntry(Level.ERROR, tag, message, throwable)
     }
 
     /**
-     * 网络请求日志 —— 完整记录请求和响应。
+     * 网络请求日志 —— 记录到 network.log + 内存缓冲。
      */
     fun network(
         method: String,
@@ -90,128 +110,147 @@ object AppLog {
         responseBody: String = "",
         durationMs: Long = 0
     ) {
-        val sb = StringBuilder()
-        sb.append("━━━ ${method} ${url}")
-        if (durationMs > 0) sb.append("  (${durationMs}ms)")
-        sb.append("\n")
-        if (requestHeaders.isNotEmpty()) {
-            sb.append("── 请求头 ──\n")
-            requestHeaders.forEach { (k, v) -> sb.append("  $k: $v\n") }
-        }
-        if (requestBody.isNotBlank()) {
-            sb.append("── 请求体 ──\n")
-            // 格式化 JSON
-            sb.append(formatJson(requestBody))
-            sb.append("\n")
-        }
-        if (responseCode > 0) {
-            sb.append("── 响应 $responseCode ──\n")
-            if (responseHeaders.isNotEmpty()) {
-                sb.append("响应头:\n")
-                responseHeaders.forEach { (k, v) -> sb.append("  $k: $v\n") }
-            }
-            if (responseBody.isNotBlank()) {
-                sb.append("响应体:\n")
-                sb.append(formatJson(responseBody))
-                sb.append("\n")
-            }
-        }
-        sb.append("━━━")
-        val msg = sb.toString()
-        Log.i(TAG, "[NET] $msg")
-        addEntry(Level.NETWORK, "NET", msg)
+        val entry = NetworkEntry(
+            timestamp = System.currentTimeMillis(),
+            method = method,
+            url = url,
+            requestHeaders = requestHeaders,
+            requestBody = requestBody,
+            responseCode = responseCode,
+            responseHeaders = responseHeaders,
+            responseBody = responseBody,
+            durationMs = durationMs
+        )
+        networkBuffer.addLast(entry)
+        while (networkBuffer.size > MAX_BUFFER) networkBuffer.pollFirst()
+        writeNetworkToFile(entry)
     }
 
-    // ── 内部写入逻辑 ──────────────────────────────────────────────────────
+    // ── 内部写入 ──────────────────────────────────────────────────────────
 
-    private fun addEntry(level: Level, tag: String, message: String, throwable: Throwable? = null) {
-        val entry = Entry(System.currentTimeMillis(), level, tag, message, throwable)
-        buffer.addLast(entry)
-        while (buffer.size > MAX_BUFFER) buffer.pollFirst()
-        writeToFile(entry)
-        checkAutoCleanup()
+    private fun addAppEntry(level: Level, tag: String, message: String, throwable: Throwable? = null) {
+        val entry = Entry(System.currentTimeMillis(), level, tag, message, throwable, LogType.APP)
+        appBuffer.addLast(entry)
+        while (appBuffer.size > MAX_BUFFER) appBuffer.pollFirst()
+        writeAppToFile(entry)
     }
 
-    /**
-     * 追加写入到单个文件。超过大小限制时截断保留后半部分。
-     */
     @Synchronized
-    private fun writeToFile(entry: Entry) {
-        val file = logFile ?: return
+    private fun writeAppToFile(entry: Entry) {
+        val dir = logDir ?: return
         try {
-            // 检查文件大小，超限时截断
-            if (file.exists() && file.length() > maxSizeBytes) {
-                // 读取后半部分保留
-                val keepRatio = 0.5  // 保留后 50%
-                val content = file.readText()
-                val keepFrom = (content.length * keepRatio).toInt()
-                val keepText = "...[日志已截断, 保留最近部分]...\n" + content.substring(keepFrom)
-                file.writeText(keepText)
+            val day = dayFormat.format(Date(entry.timestamp))
+            val formatted = formatAppEntry(entry) + "\n"
+
+            // 写到每日应用日志
+            File(dir, "${APP_FILE_PREFIX}${day}${FILE_SUFFIX}").appendText(formatted)
+
+            // 警告额外写到 warn 文件
+            if (entry.level == Level.WARN) {
+                File(dir, "${WARN_FILE_PREFIX}${day}${FILE_SUFFIX}").appendText(formatted)
             }
-            // 追加写入
-            file.appendText(formatEntry(entry) + "\n")
+
+            // 错误额外写到 error 文件
+            if (entry.level == Level.ERROR) {
+                File(dir, "${ERROR_FILE_PREFIX}${day}${FILE_SUFFIX}").appendText(formatted)
+            }
         } catch (_: Throwable) {}
     }
 
-    private fun checkAutoCleanup() {
-        val file = logFile ?: return
-        if (maxAgeMs > 0 && file.exists()) {
-            val cutoff = System.currentTimeMillis() - maxAgeMs
-            // 单文件模式下，时间逻辑不直接删文件，而是在日志内容里标记
-            // 真正的时间删除只影响旧格式的多文件模式
-        }
+    @Synchronized
+    private fun writeNetworkToFile(entry: NetworkEntry) {
+        val dir = logDir ?: return
+        try {
+            val file = File(dir, NETWORK_FILE)
+            // 超过大小限制时截断
+            if (file.exists() && file.length() > MAX_NETWORK_SIZE) {
+                val content = file.readText()
+                val keepFrom = (content.length * 0.5).toInt()
+                file.writeText("...[截断, 保留最近部分]...\n" + content.substring(keepFrom))
+            }
+            file.appendText(formatNetworkEntry(entry) + "\n")
+        } catch (_: Throwable) {}
     }
 
     // ── 查询 ──────────────────────────────────────────────────────────────
 
-    fun getEntries(): List<Entry> = buffer.toList()
+    fun getAppEntries(): List<Entry> = appBuffer.toList()
+    fun getNetworkEntries(): List<NetworkEntry> = networkBuffer.toList()
 
-    fun getFileContent(): String {
-        val file = logFile ?: return ""
+    /** 获取所有日志文件（按日期倒序） */
+    data class LogFileInfo(
+        val file: File,
+        val name: String,
+        val size: Long,
+        val type: String,  // "app" / "error" / "warn" / "network"
+        val date: String,  // YYYYMMDD 或 "network"
+        val modified: Long
+    )
+
+    fun getLogFiles(): List<LogFileInfo> {
+        val dir = logDir ?: return emptyList()
+        return dir.listFiles()
+            ?.filter { it.name.endsWith(FILE_SUFFIX) }
+            ?.map { f ->
+                val name = f.name
+                val type = when {
+                    name.startsWith(NETWORK_FILE) -> "network"
+                    name.startsWith(ERROR_FILE_PREFIX) -> "error"
+                    name.startsWith(WARN_FILE_PREFIX) -> "warn"
+                    name.startsWith(APP_FILE_PREFIX) -> "app"
+                    else -> "other"
+                }
+                val date = when (type) {
+                    "network" -> "network"
+                    else -> name.substringAfter("_").substringBefore(".")
+                }
+                LogFileInfo(f, name, f.length(), type, date, f.lastModified())
+            }
+            ?.sortedByDescending { it.modified }
+            ?: emptyList()
+    }
+
+    fun getFileContent(name: String): String {
+        val dir = logDir ?: return ""
+        val file = File(dir, name)
         return if (file.exists()) file.readText() else ""
     }
 
-    fun getFilePath(): String? = logFile?.absolutePath
-
-    fun getFileSize(): Long {
-        val file = logFile ?: return 0
-        return if (file.exists()) file.length() else 0
+    fun deleteFile(name: String) {
+        val dir = logDir ?: return
+        File(dir, name).delete()
     }
 
-    fun clearBufferOnly() {
-        buffer.clear()
+    fun getFile(name: String): File? {
+        val dir = logDir ?: return null
+        val file = File(dir, name)
+        return if (file.exists()) file else null
     }
+
+    fun clearAppBuffer() { appBuffer.clear() }
+    fun clearNetworkBuffer() { networkBuffer.clear() }
 
     fun clearAll() {
-        buffer.clear()
-        logFile?.let { if (it.exists()) it.writeText("") }
-        i("AppLog", "=== 日志已清空 ===")
+        appBuffer.clear()
+        networkBuffer.clear()
+        logDir?.listFiles()?.forEach { it.delete() }
+        i("AppLog", "所有日志已清空")
     }
 
-    // ── 导出/分享 ────────────────────────────────────────────────────────
-
-    fun exportAll(): String {
-        val sb = StringBuilder()
-        sb.appendLine("=== NaiGen 日志导出 ===")
-        sb.appendLine("时间: ${dateFormat.format(Date())}")
-        sb.appendLine("========================")
-        sb.appendLine()
-        buffer.forEach { sb.appendLine(formatEntry(it)) }
-        return sb.toString()
+    fun getTotalSize(): Long {
+        val dir = logDir ?: return 0
+        return dir.listFiles()?.sumOf { it.length() } ?: 0
     }
-
-    fun getFile(): File? = logFile
 
     // ── 格式化 ────────────────────────────────────────────────────────────
 
-    fun formatEntry(entry: Entry): String {
+    private fun formatAppEntry(entry: Entry): String {
         val time = dateFormat.format(Date(entry.timestamp))
         val levelStr = when (entry.level) {
             Level.DEBUG -> "D"
             Level.INFO -> "I"
             Level.WARN -> "W"
             Level.ERROR -> "E"
-            Level.NETWORK -> "N"
         }
         val sb = StringBuilder()
         sb.append("[$time] $levelStr/${entry.tag}: ${entry.message}")
@@ -225,36 +264,67 @@ object AppLog {
         return sb.toString()
     }
 
+    private fun formatNetworkEntry(entry: NetworkEntry): String {
+        val time = dateFormat.format(Date(entry.timestamp))
+        val sb = StringBuilder()
+        sb.append("[$time] ${entry.method} ${entry.url}")
+        if (entry.durationMs > 0) sb.append(" (${entry.durationMs}ms)")
+        sb.append("\n")
+        if (entry.requestHeaders.isNotEmpty()) {
+            sb.append("  请求头:\n")
+            entry.requestHeaders.forEach { (k, v) -> sb.append("    $k: $v\n") }
+        }
+        if (entry.requestBody.isNotBlank()) {
+            sb.append("  请求体: ${entry.requestBody.take(500)}\n")
+        }
+        if (entry.responseCode > 0) {
+            sb.append("  响应: ${entry.responseCode}\n")
+            if (entry.responseBody.isNotBlank()) {
+                sb.append("  响应体: ${entry.responseBody.take(500)}\n")
+            }
+        }
+        return sb.toString()
+    }
+
+    fun formatNetworkForDisplay(entry: NetworkEntry): String {
+        val sb = StringBuilder()
+        sb.append("${entry.method} ${entry.url}")
+        if (entry.durationMs > 0) sb.append("  (${entry.durationMs}ms)")
+        sb.append("\n\n── 请求头 ──\n")
+        if (entry.requestHeaders.isNotEmpty()) {
+            entry.requestHeaders.forEach { (k, v) -> sb.append("$k: $v\n") }
+        } else {
+            sb.append("(无)\n")
+        }
+        sb.append("\n── 请求体 ──\n")
+        sb.append(if (entry.requestBody.isNotBlank()) formatJson(entry.requestBody) else "(无)")
+        sb.append("\n\n── 响应 ${entry.responseCode} ──\n")
+        if (entry.responseHeaders.isNotEmpty()) {
+            sb.append("响应头:\n")
+            entry.responseHeaders.forEach { (k, v) -> sb.append("$k: $v\n") }
+            sb.append("\n")
+        }
+        sb.append("响应体:\n")
+        sb.append(if (entry.responseBody.isNotBlank()) formatJson(entry.responseBody) else "(无)")
+        return sb.toString()
+    }
+
     private fun formatJson(json: String): String {
         return try {
             if (json.trim().startsWith("{") || json.trim().startsWith("[")) {
-                val trimmed = json.trim()
                 val sb = StringBuilder()
                 var indent = 0
-                for (ch in trimmed) {
+                for (ch in json.trim()) {
                     when (ch) {
-                        '{', '[' -> {
-                            sb.append(ch).append("\n")
-                            indent++
-                            sb.append("  ".repeat(indent))
-                        }
-                        '}', ']' -> {
-                            indent = (indent - 1).coerceAtLeast(0)
-                            sb.append("\n").append("  ".repeat(indent)).append(ch)
-                        }
-                        ',' -> {
-                            sb.append(ch).append("\n").append("  ".repeat(indent))
-                        }
+                        '{', '[' -> { sb.append(ch).append("\n"); indent++; sb.append("  ".repeat(indent)) }
+                        '}', ']' -> { indent = (indent - 1).coerceAtLeast(0); sb.append("\n").append("  ".repeat(indent)).append(ch) }
+                        ',' -> { sb.append(ch).append("\n").append("  ".repeat(indent)) }
                         else -> sb.append(ch)
                     }
                 }
                 sb.toString()
-            } else {
-                json
-            }
-        } catch (_: Throwable) {
-            json
-        }
+            } else json
+        } catch (_: Throwable) { json }
     }
 
     // ── 崩溃捕获 ──────────────────────────────────────────────────────────
@@ -265,32 +335,28 @@ object AppLog {
         previousHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             try {
+                val day = dayFormat.format(Date())
                 val sb = StringBuilder()
-                sb.append("\n")
-                sb.append("╔══════════════════════════════════════════╗\n")
-                sb.append("║          应用崩溃报告                    ║\n")
-                sb.append("╚══════════════════════════════════════════╝\n")
+                sb.append("\n╔══════════════════════════════╗\n")
+                sb.append("║      应用崩溃报告            ║\n")
+                sb.append("╚══════════════════════════════╝\n")
                 sb.append("时间: ${dateFormat.format(Date())}\n")
                 sb.append("线程: ${thread.name}\n")
                 sb.append("设备: ${android.os.Build.BRAND} ${android.os.Build.MODEL}\n")
-                sb.append("系统: Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})\n")
-                sb.append("版本: ${com.naigen.app.BuildConfig.SEMVER} (build ${com.naigen.app.BuildConfig.BUILD_NUMBER})\n")
-                sb.append("\n--- Stack Trace ---\n")
+                sb.append("系统: Android ${android.os.Build.VERSION.RELEASE}\n")
+                sb.append("版本: ${com.naigen.app.BuildConfig.SEMVER}\n\n")
                 val sw = StringWriter()
                 val pw = PrintWriter(sw)
                 throwable.printStackTrace(pw)
                 sb.append(sw.toString())
-                sb.append("\n══════════════════════════════════════════\n\n")
-                
-                logFile?.appendText(sb.toString())
-                
-                buffer.addLast(Entry(
-                    timestamp = System.currentTimeMillis(),
-                    level = Level.ERROR,
-                    tag = "CRASH",
-                    message = "应用崩溃: ${throwable.javaClass.simpleName}: ${throwable.message}",
-                    throwable = throwable
-                ))
+                sb.append("\n══════════════════════════════\n\n")
+
+                logDir?.let { dir ->
+                    File(dir, "${APP_FILE_PREFIX}${day}${FILE_SUFFIX}").appendText(sb.toString())
+                    File(dir, "${ERROR_FILE_PREFIX}${day}${FILE_SUFFIX}").appendText(sb.toString())
+                }
+                appBuffer.addLast(Entry(System.currentTimeMillis(), Level.ERROR, "CRASH",
+                    "崩溃: ${throwable.javaClass.simpleName}: ${throwable.message}", throwable))
             } catch (_: Throwable) {}
             previousHandler?.uncaughtException(thread, throwable)
         }

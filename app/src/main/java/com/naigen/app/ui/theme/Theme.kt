@@ -71,3 +71,16 @@ fun NaiTheme(
         content = content
     )
 }
+
+/**
+ * 主题模式枚举
+ */
+enum class ThemeMode(val key: String, val displayName: String) {
+    SYSTEM("system", "跟随系统"),
+    LIGHT("light", "浅色模式"),
+    DARK("dark", "深色模式");
+
+    companion object {
+        fun fromKey(key: String): ThemeMode = entries.find { it.key == key } ?: SYSTEM
+    }
+}
