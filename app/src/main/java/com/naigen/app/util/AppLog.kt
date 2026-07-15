@@ -34,6 +34,10 @@ object AppLog {
     private const val FILE_SUFFIX = ".txt"
     private const val LOG_SUFFIX = ".log"
 
+    /** 自动删除设置（0 = 不限制） */
+    var maxAgeMs: Long = 0
+    var maxSizeBytes: Long = 0
+
     enum class Level { DEBUG, INFO, WARN, ERROR }
 
     data class Entry(
