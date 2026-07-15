@@ -279,8 +279,10 @@ object AppLog {
         sb.append("[$time] $levelStr/${entry.tag}: ${entry.message}")
         entry.throwable?.let { t ->
             sb.append("\n")
-            val pw = PrintWriter(sb)
+            val sw = StringWriter()
+            val pw = PrintWriter(sw)
             t.printStackTrace(pw)
+            sb.append(sw.toString())
         }
         return sb.toString()
     }
