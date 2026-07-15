@@ -62,7 +62,6 @@ class GenerationService : Service() {
             return START_NOT_STICKY
         }
 
-        com.naigen.app.util.AppLog.i("GenService", "onStartCommand: variants=$variants styleKey=$styleKey")
         val prompt = intent.getStringExtra(EXTRA_PROMPT) ?: run {
             stopSelf()
             return START_NOT_STICKY

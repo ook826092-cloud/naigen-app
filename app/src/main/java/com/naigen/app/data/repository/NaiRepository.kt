@@ -63,7 +63,7 @@ class NaiRepository(
         onProgress: (GenProgress) -> Unit = {}
     ): GenResult = coroutineScope {
         val token = settings.token.first()
-        com.naigen.app.util.AppLog.d("NaiRepo", "generate() called, styleKey=$styleKey sizeKey=${request.sizeKey}")
+        com.naigen.app.util.AppLog.d("NaiRepo", "generate() called, styleKey=${request.styleKey} sizeKey=${request.sizeKey}")
         val baseUrl = settings.baseUrl.first()
 
         if (token.isBlank()) {
