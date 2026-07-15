@@ -32,13 +32,11 @@ fun LogsScreen(nav: NavController) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    var tab by remember { mutableStateOf(0) } // 0=应用日志, 1=网络日志, 2=全部(文件)
+    var tab by remember { mutableStateOf(0) } // 0=应用日志, 1=网络日志
     var appEntries by remember { mutableStateOf(AppLog.getAppEntries()) }
-    var networkEntries by remember { mutableStateOf(AppLog.getNetworkEntries()) }
-    var logFiles by remember { mutableStateOf(AppLog.getLogFiles()) }
-    var filter by remember { mutableStateOf(AppLog.Level.DEBUG) } // 全部/警告/错误
+    var networkFiles by remember { mutableStateOf(AppLog.getNetworkFiles()) }
+    var filter by remember { mutableStateOf(AppLog.Level.DEBUG) }
     var selectedNetwork by remember { mutableStateOf<AppLog.NetworkEntry?>(null) }
-    var selectedFile by remember { mutableStateOf<String?>(null) }
 
     val filteredApp = remember(appEntries, filter) {
         when (filter) {
@@ -52,26 +50,10 @@ fun LogsScreen(nav: NavController) {
         topBar = {
             TopAppBar(
                 title = { Text("日志") },
-                navigationIcon = {
-                    IconButton(onClick = { nav.popBackStack() }) {
-                        Icon(Icons.Outlined.ArrowBack, contentDescription = "返回")
-                    }
-                },
+                navigationIcon = { IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.Outlined.ArrowBack, contentDescription = "返回") } },
                 actions = {
-                    // 刷新
-                    IconButton(onClick = {
-                        appEntries = AppLog.getAppEntries()
-                        networkEntries = AppLog.getNetworkEntries()
-                        logFiles = AppLog.getLogFiles()
-                    }) { Icon(Icons.Outlined.Refresh, contentDescription = "刷新") }
-                    // 清空
-                    IconButton(onClick = {
-                        AppLog.clearAll()
-                        appEntries = AppLog.getAppEntries()
-                        networkEntries = AppLog.getNetworkEntries()
-                        logFiles = AppLog.getLogFiles()
-                        scope.launch { snackbarHostState.showSnackbar("已清空") }
-                    }) { Icon(Icons.Outlined.Delete, contentDescription = "清空", tint = MaterialTheme.colorScheme.error) }
+                    IconButton(onClick = { appEntries = AppLog.getAppEntries(); networkFiles = AppLog.getNetworkFiles() }) { Icon(Icons.Outlined.Refresh, contentDescription = "刷新") }
+                    IconButton(onClick = { AppLog.clearAll(); appEntries = AppLog.getAppEntries(); networkFiles = AppLog.getNetworkFiles(); scope.launch { snackbarHostState.showSnackbar("已清空") } }) { Icon(Icons.Outlined.Delete, contentDescription = "清空", tint = MaterialTheme.colorScheme.error) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
@@ -81,8 +63,7 @@ fun LogsScreen(nav: NavController) {
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
             TabRow(selectedTabIndex = tab) {
                 Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("应用日志") })
-                Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("网络日志 (${networkEntries.size})") })
-                Tab(selected = tab == 2, onClick = { tab = 2; logFiles = AppLog.getLogFiles() }, text = { Text("全部") })
+                Tab(selected = tab == 1, onClick = { tab = 1; networkFiles = AppLog.getNetworkFiles() }, text = { Text("网络日志 (${networkFiles.size})") })
             }
 
             when (tab) {
@@ -105,68 +86,42 @@ fun LogsScreen(nav: NavController) {
                     }
                 }
                 1 -> {
-                    // 网络日志
-                    if (networkEntries.isEmpty()) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("暂无网络请求", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
-                        ) {
-                            items(networkEntries) { entry ->
-                                NetworkLogCard(entry) { selectedNetwork = entry }
-                            }
-                        }
-                    }
-                }
-                2 -> {
-                    // 全部：文件列表
+                    // 网络日志：文件列表
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            "总大小: ${formatSize(AppLog.getTotalSize())} · ${logFiles.size} 个文件",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            "${networkFiles.size} 个请求文件 · ${formatSize(AppLog.getTotalSize())}",
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.weight(1f)
                         )
                     }
-                    if (logFiles.isEmpty()) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("暂无日志文件", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                    if (networkFiles.isEmpty()) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("暂无网络请求", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            items(logFiles, key = { it.name }) { f ->
-                                LogFileCard(
+                            items(networkFiles, key = { it.name }) { f ->
+                                NetworkFileCard(
                                     info = f,
-                                    onClick = { selectedFile = f.name },
+                                    onClick = {
+                                        // 找到对应的 NetworkEntry
+                                        val entry = AppLog.getNetworkEntries().find { it.fileName == f.name }
+                                        if (entry != null) selectedNetwork = entry
+                                    },
                                     onShare = {
-                                        val file = AppLog.getFile(f.name)
+                                        val file = AppLog.getFile(f.name, isNetwork = true)
                                         if (file != null) {
                                             val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", file)
-                                            val intent = Intent(Intent.ACTION_SEND).apply {
-                                                type = "text/plain"
-                                                putExtra(Intent.EXTRA_STREAM, uri)
-                                                putExtra(Intent.EXTRA_SUBJECT, f.name)
-                                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                            }
+                                            val intent = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_STREAM, uri); putExtra(Intent.EXTRA_SUBJECT, f.name); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
                                             ctx.startActivity(Intent.createChooser(intent, "分享 ${f.name}"))
                                         }
                                     },
-                                    onDelete = {
-                                        AppLog.deleteFile(f.name)
-                                        logFiles = AppLog.getLogFiles()
-                                        scope.launch { snackbarHostState.showSnackbar("已删除 ${f.name}") }
-                                    }
+                                    onDelete = { AppLog.deleteFile(f.name, isNetwork = true); networkFiles = AppLog.getNetworkFiles(); scope.launch { snackbarHostState.showSnackbar("已删除") } }
                                 )
                             }
                         }
@@ -176,67 +131,81 @@ fun LogsScreen(nav: NavController) {
         }
     }
 
-    // 网络请求详情弹窗
+    // 网络请求详情弹窗：4 个子 Tab
     selectedNetwork?.let { entry ->
-        AlertDialog(
-            onDismissRequest = { selectedNetwork = null },
-            title = { Text("${entry.method} ${entry.url.take(60)}", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold) },
-            text = {
-                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 500.dp)) {
+        NetworkDetailDialog(entry) { selectedNetwork = null }
+    }
+}
+
+@Composable
+private fun NetworkDetailDialog(entry: AppLog.NetworkEntry, onDismiss: () -> Unit) {
+    var subTab by remember { mutableStateOf(0) } // 0=请求头 1=请求体 2=响应头 3=响应体
+    val ctx = LocalContext.current
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column {
+                Text("${entry.method} ${entry.responseCode}", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                Text(entry.url.take(80), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (entry.durationMs > 0) Text("${entry.durationMs}ms", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // 4 个子 Tab
+                TabRow(selectedTabIndex = subTab) {
+                    Tab(selected = subTab == 0, onClick = { subTab = 0 }, text = { Text("请求头", style = MaterialTheme.typography.labelSmall) })
+                    Tab(selected = subTab == 1, onClick = { subTab = 1 }, text = { Text("请求体", style = MaterialTheme.typography.labelSmall) })
+                    Tab(selected = subTab == 2, onClick = { subTab = 2 }, text = { Text("响应头", style = MaterialTheme.typography.labelSmall) })
+                    Tab(selected = subTab == 3, onClick = { subTab = 3 }, text = { Text("响应体", style = MaterialTheme.typography.labelSmall) })
+                }
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)) {
                     item {
+                        val content = when (subTab) {
+                            0 -> {
+                                if (entry.requestHeaders.isEmpty()) "(空)" else entry.requestHeaders.entries.joinToString("\n") { "${it.key}: ${it.value}" }
+                            }
+                            1 -> if (entry.requestBody.isBlank()) "(空)" else entry.requestBody
+                            2 -> {
+                                if (entry.responseHeaders.isEmpty()) "(空)" else entry.responseHeaders.entries.joinToString("\n") { "${it.key}: ${it.value}" }
+                            }
+                            3 -> if (entry.responseBody.isBlank()) "(空)" else entry.responseBody
+                            else -> ""
+                        }
                         Text(
-                            AppLog.formatNetworkForDisplay(entry),
+                            content,
                             style = MaterialTheme.typography.labelSmall,
                             fontFamily = FontFamily.Monospace
                         )
                     }
                 }
-            },
-            confirmButton = { TextButton(onClick = { selectedNetwork = null }) { Text("关闭") } }
-        )
-    }
-
-    // 文件内容查看弹窗
-    selectedFile?.let { fileName ->
-        val content = remember { AppLog.getFileContent(fileName) }
-        AlertDialog(
-            onDismissRequest = { selectedFile = null },
-            title = { Text(fileName, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold) },
-            text = {
-                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 500.dp)) {
-                    item {
-                        Text(content.takeLast(20000), style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace)
-                    }
-                }
-            },
-            confirmButton = {
-                Row {
-                    TextButton(onClick = {
-                        val file = AppLog.getFile(fileName)
-                        if (file != null) {
-                            val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", file)
-                            val intent = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_STREAM, uri)
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            ctx.startActivity(Intent.createChooser(intent, "分享 $fileName"))
-                        }
-                    }) { Text("分享") }
-                    TextButton(onClick = { selectedFile = null }) { Text("关闭") }
-                }
             }
-        )
-    }
+        },
+        confirmButton = {
+            Row {
+                TextButton(onClick = {
+                    val file = AppLog.getFile(entry.fileName, isNetwork = true)
+                    if (file != null) {
+                        val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", file)
+                        val intent = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_STREAM, uri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+                        ctx.startActivity(Intent.createChooser(intent, "分享"))
+                    }
+                }) { Text("分享 TXT") }
+                TextButton(onClick = onDismiss) { Text("关闭") }
+            }
+        }
+    )
 }
 
 @Composable
 private fun FilterChipMini(text: String, selected: Boolean, onClick: () -> Unit) {
     val bg = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
     val fg = if (selected) androidx.compose.ui.graphics.Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-    Box(
-        modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(bg).clickable(onClick = onClick).padding(horizontal = 10.dp, vertical = 5.dp)
-    ) { Text(text, style = MaterialTheme.typography.labelMedium, color = fg, fontWeight = FontWeight.Medium) }
+    Box(modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(bg).clickable(onClick = onClick).padding(horizontal = 10.dp, vertical = 5.dp)) {
+        Text(text, style = MaterialTheme.typography.labelMedium, color = fg, fontWeight = FontWeight.Medium)
+    }
 }
 
 @Composable
@@ -248,12 +217,9 @@ private fun AppLogEntryCard(entry: AppLog.Entry) {
         AppLog.Level.ERROR -> MaterialTheme.colorScheme.error
     }
     val levelText = when (entry.level) { AppLog.Level.DEBUG -> "D", AppLog.Level.INFO -> "I", AppLog.Level.WARN -> "W", AppLog.Level.ERROR -> "E" }
-    Column(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surface).padding(8.dp)
-    ) {
+    Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surface).padding(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(levelText, style = MaterialTheme.typography.labelSmall, color = androidx.compose.ui.graphics.Color.White, fontWeight = FontWeight.Bold,
-                modifier = Modifier.clip(RoundedCornerShape(3.dp)).background(levelColor).padding(horizontal = 4.dp, vertical = 1.dp))
+            Text(levelText, style = MaterialTheme.typography.labelSmall, color = androidx.compose.ui.graphics.Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.clip(RoundedCornerShape(3.dp)).background(levelColor).padding(horizontal = 4.dp, vertical = 1.dp))
             Spacer(Modifier.width(6.dp))
             Text(DateUtils.relative(entry.timestamp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.width(6.dp))
@@ -268,64 +234,21 @@ private fun AppLogEntryCard(entry: AppLog.Entry) {
     }
 }
 
-@Composable
-private fun NetworkLogCard(entry: AppLog.NetworkEntry, onClick: () -> Unit) {
-    val okColor = if (entry.responseCode in 200..299) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
-    Column(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surface).clickable(onClick = onClick).padding(8.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(entry.method, style = MaterialTheme.typography.labelSmall, color = androidx.compose.ui.graphics.Color.White, fontWeight = FontWeight.Bold,
-                modifier = Modifier.clip(RoundedCornerShape(3.dp)).background(okColor).padding(horizontal = 4.dp, vertical = 1.dp))
-            Spacer(Modifier.width(6.dp))
-            Text(DateUtils.relative(entry.timestamp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (entry.durationMs > 0) {
-                Spacer(Modifier.width(6.dp))
-                Text("${entry.durationMs}ms", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        Spacer(Modifier.height(2.dp))
-        Text(entry.url.take(80), style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
-        if (entry.responseCode > 0) {
-            Text("→ ${entry.responseCode}", style = MaterialTheme.typography.labelSmall, color = okColor)
-        }
-    }
-}
-
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun LogFileCard(
+private fun NetworkFileCard(
     info: AppLog.LogFileInfo,
     onClick: () -> Unit,
     onShare: () -> Unit,
     onDelete: () -> Unit
 ) {
     var showActions by remember { mutableStateOf(false) }
-    val typeIcon = when (info.type) {
-        "error" -> Icons.Outlined.Warning
-        "warn" -> Icons.Outlined.Info
-        "network" -> Icons.Outlined.Cloud
-        else -> Icons.Outlined.Description
-    }
-    val typeColor = when (info.type) {
-        "error" -> MaterialTheme.colorScheme.error
-        "warn" -> androidx.compose.ui.graphics.Color(0xFFFF9800)
-        "network" -> androidx.compose.ui.graphics.Color(0xFF4CAF50)
-        else -> MaterialTheme.colorScheme.primary
-    }
-    val typeLabel = when (info.type) {
-        "error" -> "错误"
-        "warn" -> "警告"
-        "network" -> "网络"
-        "app" -> "日志"
-        else -> ""
-    }
     Column(
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface)
             .combinedClickable(onClick = onClick, onLongClick = { showActions = true }).padding(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(typeIcon, contentDescription = null, tint = typeColor, modifier = Modifier.size(20.dp))
+            Icon(Icons.Outlined.Cloud, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
                 Text(info.name, style = MaterialTheme.typography.bodyMedium, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium)
@@ -333,22 +256,14 @@ private fun LogFileCard(
                     Text(DateUtils.display(info.modified), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.width(8.dp))
                     Text(formatSize(info.size), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.width(8.dp))
-                    Text(typeLabel, style = MaterialTheme.typography.labelSmall, color = typeColor, fontWeight = FontWeight.Bold)
                 }
             }
         }
         if (showActions) {
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                TextButton(onClick = { onShare(); showActions = false }) {
-                    Icon(Icons.Outlined.Share, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp)); Text("分享")
-                }
-                TextButton(onClick = { onDelete(); showActions = false }) {
-                    Icon(Icons.Outlined.Delete, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
-                    Spacer(Modifier.width(4.dp)); Text("删除", color = MaterialTheme.colorScheme.error)
-                }
+                TextButton(onClick = { onShare(); showActions = false }) { Icon(Icons.Outlined.Share, contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("分享") }
+                TextButton(onClick = { onDelete(); showActions = false }) { Icon(Icons.Outlined.Delete, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error); Spacer(Modifier.width(4.dp)); Text("删除", color = MaterialTheme.colorScheme.error) }
             }
         }
     }

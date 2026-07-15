@@ -2,5 +2,6 @@
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <files-path name="images" path="images/" />
     <files-path name="logs" path="logs/" />
+    <files-path name="logs-net" path="logs/net/" />
     <files-path name="internal" path="." />
 </paths>
