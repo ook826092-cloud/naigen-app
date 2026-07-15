@@ -87,8 +87,11 @@ class NaiApiClient(
                         val parsed = runCatching {
                             json.decodeFromString(CreateJobResponse.serializer(), raw)
                         }.getOrNull()
-                        parsed?.copy(error = parsed.error ?: "HTTP ${resp.code}: $raw")
-                            ?: CreateJobResponse(error = "HTTP ${resp.code}: $raw")
+                        // HTTP 错误时，error 一定带上状态码，方便上层/测试识别
+                        val errMsg = "HTTP ${resp.code}" +
+                            (parsed?.error?.let { ": $it" } ?: (": $raw".takeIf { raw.isNotBlank() } ?: ""))
+                        parsed?.copy(error = errMsg)
+                            ?: CreateJobResponse(error = errMsg)
                     } else {
                         val result = json.decodeFromString(CreateJobResponse.serializer(), raw)
                         AppLog.i("NaiApiClient", "createJob() 成功: jobId=${result.id}")
