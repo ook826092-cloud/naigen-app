@@ -198,8 +198,6 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────────
   release:
     name: Publish Release
-    # 仅手动触发发版时才创建 Release；push 触发时跳过（只验证编译）
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     needs: [ bump-version, build ]
     steps:

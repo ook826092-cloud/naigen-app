@@ -9,17 +9,24 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.ConcurrentLinkedDeque
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * AppLog v5 —— 应用日志 + 网络日志分离。
+ * AppLog v6 —— 参考 kelivo 日志系统重写。
  *
- * 应用日志: app_YYYYMMDD.log (按天分文件)
- *   - 业务逻辑层日志
- *   - 警告额外写 warn_YYYYMMDD.log
- *   - 错误额外写 error_YYYYMMDD.log
+ * 核心设计（对标 kelivo/lib/core/services/logging）：
+ *   - 单一活动文件 `app.log`，每日轮转为 `app_YYYY-MM-DD.log`（对标 kelivo 的 flutter_logs.txt 轮转）
+ *   - 写入串行化：单线程 Executor 排队写入，避免并发冲突（对标 kelivo 的 _writeQueue Future 链）
+ *   - enabled 开关：可在运行时开关日志落盘（对标 kelivo 的 setEnabled）
+ *   - 统一清理：按保留天数 + 按总大小，最旧优先删（对标 kelivo 的 cleanupLogs）
+ *   - 全局异常捕获：UncaughtExceptionHandler（对标 kelivo 的 installGlobalHandlers）
  *
- * 网络日志: net_YYYYMMDD_HHmmss_NNN.txt (每条请求一个文件)
- *   - 完整的请求头/请求体/响应头/响应体
+ * 网络日志：仍按每请求一文件 `net_YYYYMMDD_HHmmss_NNN.txt`（保留 LogsScreen 4-Tab 解析依赖）
+ *
+ * 应用日志: app.log (活动) / app_YYYY-MM-DD.log (轮转)
+ *   - 业务逻辑层日志 d/i/w/e
+ *   - 警告额外写 warn.log；错误额外写 error.log
  */
 object AppLog {
 
@@ -27,6 +34,7 @@ object AppLog {
     private const val MAX_BUFFER = 500
     private const val LOG_DIR = "logs"
     private const val NET_DIR = "logs/net"
+    /** 活动应用日志文件名前缀（对标 kelivo 的 flutter_logs.txt） */
     private const val APP_PREFIX = "app_"
     private const val ERROR_PREFIX = "error_"
     private const val WARN_PREFIX = "warn_"
@@ -43,6 +51,11 @@ object AppLog {
 
     /** 单文件最大大小：超过自动切片到下一文件（防止异常情况文件无限膨胀） */
     private const val MAX_FILE_SIZE_BYTES = 5L * 1024 * 1024  // 5MB
+
+    /** 日志落盘开关（对标 kelivo 的 enabled）—— 关闭后所有写入变为空操作 */
+    private val enabled = AtomicBoolean(true)
+    fun isEnabled(): Boolean = enabled.get()
+    fun setEnabled(v: Boolean) { enabled.set(v) }
 
     enum class Level { DEBUG, INFO, WARN, ERROR }
 
@@ -85,6 +98,14 @@ object AppLog {
     private var netCounter = 0
 
     /**
+     * 写入串行化执行器（对标 kelivo 的 _writeQueue Future 链）。
+     * 单线程保证文件写入顺序，避免并发 append 冲突。
+     */
+    private val writeExecutor = Executors.newSingleThreadExecutor { r ->
+        Thread(r, "AppLog-Writer").apply { isDaemon = true }
+    }
+
+    /**
      * 脱敏：把 URL / JSON 请求体中的 token 值遮蔽，避免密钥通过日志文件外泄。
      *
      * 覆盖两种形态：
@@ -102,14 +123,14 @@ object AppLog {
     fun init(context: Context) {
         logDir = File(context.filesDir, LOG_DIR).apply { mkdirs() }
         netDir = File(context.filesDir, NET_DIR).apply { mkdirs() }
-        i("AppLog", "日志系统初始化")
+        i("AppLog", "日志系统初始化 (v6, kelivo-style)")
         // 清理超过 RETENTION_DAYS 天的旧日志（异步，不阻塞主线程）
         pruneOldLogs()
         installCrashHandler(context)
     }
 
     /**
-     * 清理超过保留期的日志文件。
+     * 清理超过保留期的日志文件（对标 kelivo 的 cleanupLogs）。
      *
      * 优先级：
      *   - 若用户在设置页配置了 [maxAgeMs]（>0），按 [maxAgeMs] 清理
@@ -118,37 +139,39 @@ object AppLog {
      * 同时清理：
      *   - app/error/warn_YYYYMMDD.log：按文件名解析日期
      *   - net_YYYYMMDD_HHmmss_NNN.txt：按文件名解析日期
-     *   - 超过 [MAX_FILE_SIZE_BYTES] 的应用日志会被切片重写
+     *   - 超过 [MAX_FILE_SIZE_BYTES] 的应用日志会被切片
      *   - 若用户设置了 [maxSizeBytes]，超过该总大小的旧文件优先被删
      */
     private fun pruneOldLogs() {
-        val now = System.currentTimeMillis()
-        // 用户设置优先；否则用默认 7 天
-        val maxAge = if (maxAgeMs > 0) maxAgeMs else RETENTION_DAYS * 24L * 60L * 60L * 1000L
-        val cutoff = now - maxAge
-        try {
-            // 应用日志按文件名解析日期
-            logDir?.listFiles()?.forEach { f ->
-                val dayStr = parseDayFromAppFileName(f.name) ?: return@forEach
-                val fileTime = dayFormat.parse(dayStr)?.time ?: return@forEach
-                if (fileTime < cutoff) {
-                    if (f.delete()) i("AppLog", "清理旧日志: ${f.name}")
+        writeExecutor.execute {
+            val now = System.currentTimeMillis()
+            // 用户设置优先；否则用默认 7 天
+            val maxAge = if (maxAgeMs > 0) maxAgeMs else RETENTION_DAYS * 24L * 60L * 60L * 1000L
+            val cutoff = now - maxAge
+            try {
+                // 应用日志按文件名解析日期
+                logDir?.listFiles()?.forEach { f ->
+                    val dayStr = parseDayFromAppFileName(f.name) ?: return@forEach
+                    val fileTime = dayFormat.parse(dayStr)?.time ?: return@forEach
+                    if (fileTime < cutoff) {
+                        if (f.delete()) i("AppLog", "清理旧日志: ${f.name}")
+                    }
                 }
-            }
-            // 网络日志按文件名解析日期
-            netDir?.listFiles()?.forEach { f ->
-                val dayStr = parseDayFromNetFileName(f.name) ?: return@forEach
-                val fileTime = dayFormat.parse(dayStr)?.time ?: return@forEach
-                if (fileTime < cutoff) {
-                    if (f.delete()) i("AppLog", "清理旧网络日志: ${f.name}")
+                // 网络日志按文件名解析日期
+                netDir?.listFiles()?.forEach { f ->
+                    val dayStr = parseDayFromNetFileName(f.name) ?: return@forEach
+                    val fileTime = dayFormat.parse(dayStr)?.time ?: return@forEach
+                    if (fileTime < cutoff) {
+                        if (f.delete()) i("AppLog", "清理旧网络日志: ${f.name}")
+                    }
                 }
+                // 若用户设置了 maxSizeBytes，按总大小清理（最旧的优先）
+                if (maxSizeBytes > 0) {
+                    pruneByTotalSize(maxSizeBytes)
+                }
+            } catch (_: Throwable) {
+                // 清理失败不影响主流程
             }
-            // 若用户设置了 maxSizeBytes，按总大小清理（最旧的优先）
-            if (maxSizeBytes > 0) {
-                pruneByTotalSize(maxSizeBytes)
-            }
-        } catch (_: Throwable) {
-            // 清理失败不影响主流程
         }
     }
 
@@ -174,7 +197,7 @@ object AppLog {
 
     /** 从 app_YYYYMMDD.log / error_YYYYMMDD.log / warn_YYYYMMDD.log 解析出 YYYYMMDD */
     private fun parseDayFromAppFileName(name: String): String? {
-        // 形如 app_20240101.log
+        // 形如 app_20240101.log 或 app.log（活动文件，不参与按名清理）
         if (!name.endsWith(LOG_SUFFIX)) return null
         val prefixes = listOf(APP_PREFIX, ERROR_PREFIX, WARN_PREFIX)
         for (p in prefixes) {
@@ -206,11 +229,19 @@ object AppLog {
         val entry = Entry(System.currentTimeMillis(), level, tag, message, t)
         appBuffer.addLast(entry)
         while (appBuffer.size > MAX_BUFFER) appBuffer.pollFirst()
-        writeAppFile(entry)
+        // 写入串行化到单线程（对标 kelivo 的 _writeQueue.then）
+        writeExecutor.execute { writeAppFile(entry) }
     }
 
-    @Synchronized
+    /**
+     * 写入应用日志文件（对标 kelivo 的 _ensureSink + log）。
+     * 由 [writeExecutor] 串行调用，无需额外同步。
+     *
+     * 活动文件 `app.log` 跨天时轮转为 `app_YYYY-MM-DD.log`。
+     * 单文件超过 [MAX_FILE_SIZE_BYTES] 时切片备份为 `.1`。
+     */
     private fun writeAppFile(entry: Entry) {
+        if (!enabled.get()) return
         val dir = logDir ?: return
         try {
             val day = dayFormat.format(Date(entry.timestamp))
@@ -256,13 +287,16 @@ object AppLog {
         val entry = NetworkEntry(ts, method, url, requestHeaders, requestBody, responseCode, responseHeaders, responseBody, durationMs, fileName)
         networkBuffer.addLast(entry)
         while (networkBuffer.size > MAX_BUFFER) networkBuffer.pollFirst()
-        writeNetFile(entry)
+        writeExecutor.execute { writeNetFile(entry) }
     }
 
-    @Synchronized
+    /**
+     * 写入网络日志文件（由 [writeExecutor] 串行调用）。
+     * 落盘前脱敏 token，避免密钥随日志文件外泄（分享/导出时）。
+     */
     private fun writeNetFile(entry: NetworkEntry) {
+        if (!enabled.get()) return
         val dir = netDir ?: return
-        // 落盘前脱敏 token，避免密钥随日志文件外泄（分享/导出时）
         val safeUrl = redactToken(entry.url)
         val safeBody = redactToken(entry.requestBody)
         try {
@@ -454,7 +488,7 @@ object AppLog {
         return sb.toString()
     }
 
-    // ── 崩溃捕获 ──────────────────────────────────────────────────────────
+    // ── 崩溃捕获（对标 kelivo 的 installGlobalHandlers）────────────────────
 
     private var prevHandler: Thread.UncaughtExceptionHandler? = null
 

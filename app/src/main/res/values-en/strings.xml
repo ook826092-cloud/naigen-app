@@ -57,7 +57,7 @@
     <string name="api_provider">Provider</string>
     <string name="api_provider_name">API</string>
     <string name="api_provider_builtin">(built-in)</string>
-    <string name="api_provider_desc">Currently only supports API (https://API 服务器). No manual address configuration needed.</string>
+    <string name="api_provider_desc">Currently only supports API (https://API server). No manual address configuration needed.</string>
     <string name="api_token">API Token</string>
     <string name="api_token_hint">STA1N-xxxxx…</string>
     <string name="api_show_plaintext">Show plaintext</string>
