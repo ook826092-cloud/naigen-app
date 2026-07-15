@@ -71,7 +71,11 @@ class GenerationService : Service() {
         val styleKey = intent.getStringExtra(EXTRA_STYLE) ?: "2.5d"
         val sizeKey = intent.getStringExtra(EXTRA_SIZE) ?: "竖图"
         val variants = intent.getIntExtra(EXTRA_VARIANTS, 1)
+<<<<<<< HEAD
 
+=======
+        com.naigen.app.util.AppLog.i("GenService", "onStartCommand: variants=" + variants + " styleKey=" + styleKey + " sizeKey=" + sizeKey)        
+>>>>>>> 50c829b (fix: 修复 sed 命令被 bash 变量展开搞坏的问题)
         val app = applicationContext as NaiApplication
         val req = GenRequest(
             prompt = prompt,
