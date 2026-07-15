@@ -197,6 +197,77 @@ object AppLog {
         return if (file.exists()) file.readText() else ""
     }
 
+    /**
+     * 从网络日志文件内容解析出概览信息（方法/URL/响应码/耗时）。
+     */
+    data class NetworkSummary(
+        val fileName: String,
+        val method: String,
+        val url: String,
+        val responseCode: Int,
+        val durationMs: Long,
+        val timestamp: Long,
+        val size: Long
+    )
+
+    fun getNetworkSummaries(): List<NetworkSummary> {
+        val dir = netDir ?: return emptyList()
+        return dir.listFiles()?.filter { it.name.endsWith(".txt") }
+            ?.sortedByDescending { it.lastModified() }
+            ?.map { f ->
+                val content = f.readText()
+                val method = Regex("方法: (\\w+)").find(content)?.groupValues?.get(1) ?: ""
+                val url = Regex("URL: (.+)").find(content)?.groupValues?.get(1)?.trim() ?: ""
+                val duration = Regex("耗时: (\\d+)ms").find(content)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
+                val code = Regex("响应 (\\d+)").find(content)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                val time = f.lastModified()
+                NetworkSummary(f.name, method, url, code, duration, time, f.length())
+            } ?: emptyList()
+    }
+
+    /**
+     * 从网络日志文件解析出 4 个部分（请求头/请求体/响应头/响应体）。
+     */
+    data class NetworkFileDetail(
+        val requestHeaders: String,
+        val requestBody: String,
+        val responseHeaders: String,
+        val responseBody: String
+    )
+
+    fun getNetworkFileDetail(fileName: String): NetworkFileDetail {
+        val content = getFileContent(fileName, isNetwork = true)
+        if (content.isBlank()) return NetworkFileDetail("", "", "", "")
+
+        // 按 ===== 分隔符拆分
+        val headerSection = extractSection(content, "===== 请求头 =====", "===== 请求体 =====")
+        val bodySection = extractSection(content, "===== 请求体 =====", "===== 响应")
+        val respHeaderSection = extractSection(content, "-- 响应头 --", "-- 响应体 --")
+        val respBodySection = extractAfter(content, "-- 响应体 --")
+
+        return NetworkFileDetail(
+            requestHeaders = headerSection,
+            requestBody = bodySection,
+            responseHeaders = respHeaderSection,
+            responseBody = respBodySection
+        )
+    }
+
+    private fun extractSection(content: String, startMarker: String, endMarker: String): String {
+        val startIdx = content.indexOf(startMarker)
+        if (startIdx == -1) return "(空)"
+        val afterStart = startIdx + startMarker.length
+        val endIdx = content.indexOf(endMarker, afterStart)
+        if (endIdx == -1) return content.substring(afterStart).trim()
+        return content.substring(afterStart, endIdx).trim().ifBlank { "(空)" }
+    }
+
+    private fun extractAfter(content: String, marker: String): String {
+        val idx = content.indexOf(marker)
+        if (idx == -1) return "(空)"
+        return content.substring(idx + marker.length).trim().ifBlank { "(空)" }
+    }
+
     fun getFile(name: String, isNetwork: Boolean = false): File? {
         val dir = if (isNetwork) netDir else logDir ?: return null
         val file = File(dir, name)

@@ -37,6 +37,7 @@ fun ThemeScreen(vm: SettingsViewModel = viewModel(), nav: NavController) {
     val currentMode = ThemeMode.fromKey(state.themeMode)
 
     Scaffold(
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.theme_title)) },

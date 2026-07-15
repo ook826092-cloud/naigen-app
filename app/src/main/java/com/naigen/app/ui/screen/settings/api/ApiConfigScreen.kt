@@ -31,6 +31,7 @@ fun ApiConfigScreen(vm: SettingsViewModel = viewModel(), nav: NavController) {
     var tokenInput by remember(state.token) { mutableStateOf(state.token) }
 
     Scaffold(
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.api_title)) },
