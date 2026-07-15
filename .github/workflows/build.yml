@@ -251,7 +251,7 @@ jobs:
 
           gh release create "$TAG" \
             --repo "$GITHUB_REPOSITORY" \
-            --title "NaiGen v${VER}" \
+            --title "NaiGen ${NAME}" \
             --notes-file release-notes.md \
             --generate-notes \
             artifacts/*.apk \
