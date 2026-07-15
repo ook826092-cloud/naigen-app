@@ -26,6 +26,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.naigen.app.BuildConfig
 import com.naigen.app.ui.components.GroupedList
 import com.naigen.app.ui.components.ListRow
 
@@ -74,7 +75,18 @@ fun AboutScreen(nav: NavController) {
                 }
                 Spacer(Modifier.height(16.dp))
                 Text("NaiGen", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                Text("v2.1.0", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // 系统识别的版本号（SemVer）
+                Text(
+                    "v${BuildConfig.SEMVER}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                // 构建次数（只在关于页显示，安卓系统看不到）
+                Text(
+                    "构建 #${BuildConfig.BUILD_NUMBER}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Text("Android Nai2API 文生图客户端", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
@@ -163,7 +175,7 @@ fun AboutScreen(nav: NavController) {
             }
 
             Text(
-                "MIT License · Copyright © 2026 ook826092-cloud",
+                "NaiGen v${BuildConfig.SEMVER} · 构建 #${BuildConfig.BUILD_NUMBER}\nMIT License · Copyright © 2026 ook826092-cloud",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier

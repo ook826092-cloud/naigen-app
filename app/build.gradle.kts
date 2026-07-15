@@ -9,10 +9,15 @@ plugins {
 }
 
 // ── 从 version.properties 读取版本号（单一来源）───────────────────────────
-// 双层版本号格式：BUILD_NUMBER / MAJOR.MINOR.PATCH
-//   - versionName = "BUILD_NUMBER/MAJOR.MINOR.PATCH"（例如 "15/2.1.0"）
-//   - versionCode = BUILD_NUMBER（单调递增）
-//   - SemVer 逢 9 进位（PATCH 9→MINOR+1，MINOR 9→MAJOR+1）
+// 双层版本号：
+//   - BUILD_NUMBER: 累计构建次数，每次 bump +1，永不动。只显示在「关于」页
+//   - MAJOR.MINOR.PATCH: 标准 SemVer，逢 9 进位
+//
+// Android 看到的：
+//   - versionName = "MAJOR.MINOR.PATCH"（例如 "2.1.9"）—— 用户在系统设置看到的
+//   - versionCode = major*10000 + minor*100 + patch（例如 20109）—— 用于升级判定
+//
+// 关于页通过 BuildConfig.BUILD_NUMBER 显示构建次数
 data class AppVersion(
     val buildNumber: Int,
     val major: Int,
@@ -20,8 +25,8 @@ data class AppVersion(
     val patch: Int
 ) {
     val semver: String get() = "$major.$minor.$patch"
-    val versionName: String get() = "$buildNumber/$semver"
-    val versionCode: Int get() = buildNumber
+    val versionName: String get() = semver
+    val versionCode: Int get() = major * 10000 + minor * 100 + patch
 }
 
 val appVersion: AppVersion = run {
@@ -102,6 +107,11 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        // 暴露给关于页用的版本信息
+        buildConfigField("int", "BUILD_NUMBER", appVersion.buildNumber.toString())
+        buildConfigField("String", "SEMVER", "\"${appVersion.semver}\"")
+        buildConfigField("String", "VERSION_DISPLAY", "\"${appVersion.buildNumber}/${appVersion.semver}\"")
     }
 
     signingConfigs {
