@@ -1,5 +1,6 @@
 package com.naigen.app.ui.screen.settings.keepalive
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -19,11 +20,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -195,19 +194,18 @@ private fun DeviceCard(manufacturer: Manufacturer) {
             .padding(16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // 厂商文字图标（首字 / 缩写），避免商标问题
+            // 厂商真实 logo（编译进 APK 的 vector drawable）
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(56.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary),
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    manufacturer.iconText,
-                    color = Color.White,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold
+                Image(
+                    painter = androidx.compose.ui.res.painterResource(manufacturer.iconRes),
+                    contentDescription = manufacturer.displayName,
+                    modifier = Modifier.size(36.dp)
                 )
             }
             Spacer(Modifier.width(12.dp))

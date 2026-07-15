@@ -9,6 +9,8 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.annotation.DrawableRes
+import com.naigen.app.R
 
 /**
  * 手机厂商识别 + 保活 Intent 跳转。
@@ -21,83 +23,89 @@ import android.provider.Settings
 object ManufacturerHelper {
 
     /**
-     * 厂商枚举。displayName 用于 UI，iconText 用于头像式图标（首字或缩写）。
+     * 厂商枚举。displayName 用于 UI，iconRes 是编译进 APK 的真实 logo drawable。
+     *
+     * 图标来源：
+     *   - 9 个直接拉自 SimpleIcons (CC0 协议，可商用)
+     *   - Redmi 复用小米 logo 路径 + 红米品牌红色 (#FE0000)
+     *   - iQOO 复用 vivo logo 路径 + iQOO 品牌蓝色 (#1B53BC)
+     *   - Realme 自绘简化 R 圆形图标（SimpleIcons 无此品牌）
      */
     enum class Manufacturer(
         val displayName: String,
-        val iconText: String,
+        @DrawableRes val iconRes: Int,
         val needsKeepAlive: Boolean,
         val tips: String
     ) {
         XIAOMI(
             "小米",
-            "米",
+            R.drawable.ic_manufacturer_xiaomi,
             true,
             "MIUI 拦截后台最狠，必须同时开启「自启动」+「省电策略：无限制」+「锁屏后不清理」"
         ),
         REDMI(
             "Redmi 红米",
-            "R",
+            R.drawable.ic_manufacturer_redmi,
             true,
             "Redmi (MIUI) 与小米同源，需开启「自启动」+「省电策略：无限制」+「锁屏后不清理」"
         ),
         HUAWEI(
             "华为",
-            "华",
+            R.drawable.ic_manufacturer_huawei,
             true,
             "EMUI / HarmonyOS 需在「应用启动管理」关闭自动管理，手动允许自启动、关联启动、后台活动"
         ),
         HONOR(
             "荣耀",
-            "荣",
+            R.drawable.ic_manufacturer_honor,
             true,
             "MagicOS 与华为类似，需在「应用启动管理」关闭自动管理，三项全部手动允许"
         ),
         OPPO(
             "OPPO",
-            "O",
+            R.drawable.ic_manufacturer_oppo,
             true,
             "ColorOS 需在「自启动管理」开启，并在「耗电保护」关闭本 App 的冻结"
         ),
         ONEPLUS(
             "一加",
-            "1+",
+            R.drawable.ic_manufacturer_oneplus,
             true,
             "OxygenOS 已合并 ColorOS，进入「自启动管理」开启，并在「电池优化」改为不优化"
         ),
         VIVO(
             "vivo",
-            "v",
+            R.drawable.ic_manufacturer_vivo,
             true,
             "OriginOS / Funtouch OS 需在「后台弹出活动」+「自启动」两项都开启"
         ),
         IQOO(
             "iQOO",
-            "i",
+            R.drawable.ic_manufacturer_iqoo,
             true,
             "iQOO 与 vivo 同源（OriginOS），需在「后台弹出活动」+「自启动」两项都开启"
         ),
         SAMSUNG(
             "三星",
-            "三",
+            R.drawable.ic_manufacturer_samsung,
             true,
             "One UI 需在「电池」→「后台使用限制」关闭「深度休眠」，并将 App 加入「从未休眠的应用」"
         ),
         MEIZU(
             "魅族",
-            "M",
+            R.drawable.ic_manufacturer_meizu,
             true,
             "Flyme 需在「后台管理」开启「保持后台运行」+「自启动」"
         ),
         REALME(
             "Realme",
-            "R",
+            R.drawable.ic_manufacturer_realme,
             true,
             "realme UI 与 ColorOS 同源，进入「自启动管理」开启即可"
         ),
         NATIVE(
             "原生 Android",
-            "A",
+            R.drawable.ic_manufacturer_android,
             false,
             "Pixel / LineageOS 等只需关闭电池优化即可，无需特殊保活"
         )
