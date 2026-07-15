@@ -180,22 +180,40 @@ object ManufacturerHelper {
                     Intent().setComponent(ComponentName(
                         "com.miui.securitycenter",
                         "com.miui.permcenter.permissions.PermissionsEditorActivity"
+                    )),
+                    Intent().setComponent(ComponentName(
+                        "com.miui.securitycenter",
+                        "com.miui.permcenter.permissions.AppPermissionsEditorActivity"
                     ))
                 )
                 KeepAlivePage.BATTERY_OPTIMIZATION -> listOf(
+                    // HyperOS / MIUI 14+ 的新入口：直接进 app 详情页的省电策略
                     Intent().setComponent(ComponentName(
                         "com.miui.powerkeeper",
                         "com.miui.powerkeeper.ui.HiddenAppsConfigActivity"
-                    )),
+                    )).apply {
+                        putExtra("package_name", "com.naigen.app")
+                        putExtra("package_label", "NaiGen")
+                    },
+                    // MIUI 13 入口
                     Intent().setComponent(ComponentName(
                         "com.miui.powerkeeper",
                         "com.miui.powerkeeper.ui.HiddenAppsContainerManagementActivity"
-                    ))
+                    )),
+                    // 系统应用详情页（一定能进，里面手动选「省电策略：无限制」）
+                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                        .setData(Uri.fromParts("package", "com.naigen.app", null)),
+                    // 系统电池优化白名单
+                    batteryOptimizationIntent()
                 )
                 KeepAlivePage.BACKGROUND_POPUP -> listOf(
                     Intent().setComponent(ComponentName(
                         "com.miui.securitycenter",
                         "com.miui.permcenter.permissions.PermissionsEditorActivity"
+                    )),
+                    Intent().setComponent(ComponentName(
+                        "com.miui.securitycenter",
+                        "com.miui.permcenter.permissions.AppPermissionsEditorActivity"
                     ))
                 )
                 KeepAlivePage.APP_DETAIL -> listOf(appDetailIntent())
@@ -416,6 +434,14 @@ object ManufacturerHelper {
     fun launch(activity: Activity, manufacturer: Manufacturer, page: KeepAlivePage): Boolean {
         val intents = intentsFor(manufacturer, page)
         for (intent in intents) {
+            // 优先用 Shizuku 启动（可启动 exported=false 的 Activity）
+            if (ShizukuHelper.isGranted()) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (ShizukuHelper.startActivity(activity, intent)) {
+                    return true
+                }
+            }
+            // Shizuku 不可用时，普通 startActivity
             if (!tryResolve(activity, intent)) continue
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             val ok = runCatching { activity.startActivity(intent) }.isSuccess

@@ -113,6 +113,22 @@ fun AboutScreen(nav: NavController) {
                     trailing = { LinkIcon() }
                 )
                 ListRow(
+                    label = "原始教程",
+                    value = "docs/Nai2API-Tutorial.md",
+                    onClick = {
+                        ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ook826092-cloud/naigen-app/blob/main/docs/Nai2API-Tutorial.md")))
+                    },
+                    trailing = { LinkIcon() }
+                )
+                ListRow(
+                    label = "隐私政策",
+                    value = "PRIVACY.md",
+                    onClick = {
+                        ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ook826092-cloud/naigen-app/blob/main/PRIVACY.md")))
+                    },
+                    trailing = { LinkIcon() }
+                )
+                ListRow(
                     label = "Issues 反馈",
                     value = "提交 bug 或建议",
                     isLast = true,

@@ -211,6 +211,10 @@ dependencies {
     implementation("androidx.glance:glance-appwidget:$glanceVersion")
     implementation("androidx.glance:glance-material3:$glanceVersion")
 
+    // Shizuku (用于启动隐藏的厂商设置 Activity, 绕过权限限制)
+    implementation("dev.rikka.shizuku:api:13.1.5")
+    implementation("dev.rikka.shizuku:provider:13.1.5")
+
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

@@ -12,6 +12,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -52,14 +53,8 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel(), nav: NavController) {
         SettingsGroup(title = "API") {
             SettingRow(
                 icon = Icons.Outlined.Key,
-                title = "API Token",
-                subtitle = if (state.token.isBlank()) "未配置" else "已配置 (${state.token.take(8)}…)",
-                onClick = { nav.navigate(SubDest.ApiConfig.route) }
-            )
-            SettingRow(
-                icon = Icons.Outlined.Info,
-                title = "API 地址",
-                subtitle = state.baseUrl,
+                title = "API 服务商",
+                subtitle = if (state.token.isBlank()) "Nai2API · 未配置 Token" else "Nai2API · 已配置 (${state.token.take(8)}…)",
                 isLast = true,
                 onClick = { nav.navigate(SubDest.ApiConfig.route) }
             )
@@ -90,9 +85,15 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel(), nav: NavController) {
         // ── 关于 ──
         SettingsGroup(title = "关于") {
             SettingRow(
+                icon = Icons.Outlined.Public,
+                title = "语言",
+                subtitle = "App 界面语言（7 种）",
+                onClick = { nav.navigate(SubDest.Language.route) }
+            )
+            SettingRow(
                 icon = Icons.Outlined.Info,
                 title = "关于本应用",
-                subtitle = "版本、源码、许可证",
+                subtitle = "版本、源码、隐私政策",
                 onClick = { nav.navigate(SubDest.About.route) }
             )
             SettingRow(

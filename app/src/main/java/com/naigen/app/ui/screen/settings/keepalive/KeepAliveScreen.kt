@@ -2,6 +2,7 @@ package com.naigen.app.ui.screen.settings.keepalive
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -20,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -33,6 +35,7 @@ import com.naigen.app.ui.components.ListRow
 import com.naigen.app.util.keepalive.ManufacturerHelper
 import com.naigen.app.util.keepalive.ManufacturerHelper.KeepAlivePage
 import com.naigen.app.util.keepalive.ManufacturerHelper.Manufacturer
+import com.naigen.app.util.keepalive.ShizukuHelper
 
 data class KeepAliveState(
     val manufacturer: Manufacturer,
@@ -92,6 +95,28 @@ fun KeepAliveScreen(nav: NavController) {
             ) {
                 // 设备识别卡（带文字图标）
                 DeviceCard(state.manufacturer)
+
+                // Shizuku 状态卡片
+                ShizukuCard(
+                    onAuthorize = {
+                        if (ShizukuHelper.isInstalled(ctx)) {
+                            ShizukuHelper.requestPermission()
+                            refreshKey++
+                        } else {
+                            // 跳转 Shizuku 安装页
+                            ctx.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://shizuku.rikka.app/")))
+                        }
+                    },
+                    onAddToWhitelist = {
+                        val ok = ShizukuHelper.addToBatteryWhitelist(ctx)
+                        scope.launch {
+                            snackbarHostState.showSnackbar(
+                                if (ok) "已通过 Shizuku 加入电池白名单" else "操作失败（Shizuku 未授权？）"
+                            )
+                        }
+                        refreshKey++
+                    }
+                )
 
                 if (state.manufacturer.needsKeepAlive) {
                     Text(
@@ -194,7 +219,6 @@ private fun DeviceCard(manufacturer: Manufacturer) {
             .padding(16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // 厂商真实 logo（编译进 APK 的 vector drawable）
             Box(
                 modifier = Modifier
                     .size(56.dp)
@@ -220,6 +244,101 @@ private fun DeviceCard(manufacturer: Manufacturer) {
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ShizukuCard(
+    onAuthorize: () -> Unit,
+    onAddToWhitelist: () -> Unit
+) {
+    val ctx = LocalContext.current
+    val installed = remember { ShizukuHelper.isInstalled(ctx) }
+    val running = remember { ShizukuHelper.isRunning() }
+    val granted = remember { ShizukuHelper.isGranted() }
+
+    Column(
+        modifier = Modifier
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(16.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (granted) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "S",
+                    color = if (granted) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "Shizuku 增强保活",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    when {
+                        !installed -> "未安装 Shizuku → 点击安装"
+                        !running -> "已安装但未启动 Shizuku 服务"
+                        !granted -> "Shizuku 已运行，待授权"
+                        else -> "✓ 已授权，可一键加白名单 + 跳转隐藏设置"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        Row {
+            if (!granted) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.primary)
+                        .clickable(onClick = onAuthorize)
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        if (installed) "授权 Shizuku" else "安装 Shizuku",
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.primary)
+                        .clickable(onClick = onAddToWhitelist)
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "一键加入电池白名单",
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
             }
         }
     }

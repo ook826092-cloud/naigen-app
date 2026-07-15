@@ -27,12 +27,11 @@ fun ApiConfigScreen(vm: SettingsViewModel = viewModel(), nav: NavController) {
     val state by vm.state.collectAsStateWithLifecycle()
     var showToken by remember { mutableStateOf(false) }
     var tokenInput by remember(state.token) { mutableStateOf(state.token) }
-    var baseUrlInput by remember(state.baseUrl) { mutableStateOf(state.baseUrl) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("API 配置") },
+                title = { Text("API 服务商") },
                 navigationIcon = {
                     IconButton(onClick = { nav.popBackStack() }) {
                         Icon(Icons.Outlined.ArrowBack, contentDescription = "返回")
@@ -51,6 +50,36 @@ fun ApiConfigScreen(vm: SettingsViewModel = viewModel(), nav: NavController) {
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 32.dp)
         ) {
+            // 服务商选择（目前只有 Nai2API）
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("服务商", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(4.dp))
+                OutlinedTextField(
+                    value = "Nai2API",
+                    onValueChange = { },
+                    readOnly = true,
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = fieldColors(),
+                    trailingIcon = {
+                        Text(
+                            "(内置)",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "当前仅支持 Nai2API（https://nai.sta1n.cn），无需手动配置地址。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+
             // Token 输入
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("API Token", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -74,22 +103,6 @@ fun ApiConfigScreen(vm: SettingsViewModel = viewModel(), nav: NavController) {
                     Spacer(Modifier.weight(1f))
                     Switch(checked = showToken, onCheckedChange = { showToken = it })
                 }
-            }
-
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-
-            // Base URL 输入
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("API 地址", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(4.dp))
-                OutlinedTextField(
-                    value = baseUrlInput,
-                    onValueChange = { baseUrlInput = it; vm.setBaseUrl(it) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = fieldColors()
-                )
             }
 
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)

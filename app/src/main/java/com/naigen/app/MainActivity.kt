@@ -9,6 +9,7 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -17,15 +18,11 @@ import androidx.compose.ui.Modifier
 import com.naigen.app.ui.navigation.AppNavGraph
 import com.naigen.app.ui.theme.NaiTheme
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
 
-    /**
-     * Android 13+ 需运行时申请 POST_NOTIFICATIONS。
-     * 启动时一次性请求，用户拒绝后由保活引导页二次引导。
-     */
     private val notifPermLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { /* 用户的选择不影响 App 启动，未授权只是收不到进度通知 */ }
+    ) { /* 用户的选择不影响 App 启动 */ }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,9 +30,7 @@ class MainActivity : ComponentActivity() {
             statusBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
         )
-
         requestNotificationPermissionIfNeeded()
-
         setContent {
             NaiTheme {
                 Surface(
