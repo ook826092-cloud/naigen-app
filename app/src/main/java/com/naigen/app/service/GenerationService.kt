@@ -275,13 +275,14 @@ class GenerationService : Service() {
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
 
         // Android 12+ 加 LocusId（各厂商岛功能靠此识别）
+        val notification = builder.build()
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
             try {
-                builder.setLocusId(androidx.core.app.LocusIdCompat("naigen_generation"))
+                notification.extras.putString("android.locusId", "naigen_generation")
             } catch (_: Throwable) {}
         }
 
-        return builder.build()
+        return notification
     }
 
     private fun updateProgress(text: String, current: Int) {
