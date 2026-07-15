@@ -24,16 +24,17 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     private val settings: SettingsStore = getApplication<NaiApplication>().settingsStore
 
     val state: StateFlow<SettingsUiState> = combine(
-        settings.token, settings.baseUrl, settings.nsfwEnabled, settings.lastStyle, settings.themeMode, settings.dynamicColor
-    ) { token, baseUrl, nsfwEnabled, lastStyle, themeMode, dynamicColor ->
+        settings.token, settings.baseUrl, settings.nsfwEnabled, settings.lastStyle, settings.themeMode
+    ) { token, baseUrl, nsfwEnabled, lastStyle, themeMode ->
         SettingsUiState(
             token = token,
             baseUrl = baseUrl,
             nsfwEnabled = nsfwEnabled,
             lastStyleKey = lastStyle,
-            themeMode = themeMode,
-            dynamicColor = dynamicColor
+            themeMode = themeMode
         )
+    }.combine(settings.dynamicColor) { state, dynamicColor ->
+        state.copy(dynamicColor = dynamicColor)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, SettingsUiState())
 
     fun setToken(v: String) = viewModelScope.launch { settings.setToken(v) }
