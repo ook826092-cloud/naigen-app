@@ -36,8 +36,8 @@ fun LogsScreen(nav: NavController) {
     var tab by remember { mutableStateOf(0) } // 0=应用日志, 1=网络日志
     var appFiles by remember { mutableStateOf(AppLog.getAppFiles()) }
     var networkFiles by remember { mutableStateOf(AppLog.getNetworkFiles()) }
-    var selectedFile by remember { mutableStateOf<Pair<String, Boolean>?>>(null) } // (fileName, isNetwork)
-    var longPressFile by remember { mutableStateOf<Pair<String, Boolean>?>>(null) } // (fileName, isNetwork)
+    var selectedFile: Pair<String, Boolean>? by remember { mutableStateOf(null) }
+    var longPressFile: Pair<String, Boolean>? by remember { mutableStateOf(null) }
 
     Scaffold(
         topBar = {
