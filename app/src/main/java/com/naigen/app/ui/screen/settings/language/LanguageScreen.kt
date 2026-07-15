@@ -18,6 +18,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.os.LocaleListCompat
 import androidx.navigation.NavController
+import androidx.compose.ui.res.stringResource
+import com.naigen.app.R
 
 /**
  * 多语言切换页。
@@ -54,7 +56,7 @@ fun LanguageScreen(nav: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("语言") },
+                title = { Text(stringResource(R.string.lang_title)) },
                 navigationIcon = {
                     IconButton(onClick = { nav.popBackStack() }) {
                         Icon(Icons.Outlined.ArrowBack, contentDescription = "返回")

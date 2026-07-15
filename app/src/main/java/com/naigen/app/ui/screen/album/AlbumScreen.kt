@@ -38,6 +38,8 @@ import com.naigen.app.util.DateUtils
 import com.naigen.app.util.ImageSaver
 import com.naigen.app.util.ShareUtils
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.stringResource
+import com.naigen.app.R
 
 @Composable
 fun AlbumScreen(vm: AlbumViewModel = viewModel()) {
@@ -57,7 +59,7 @@ fun AlbumScreen(vm: AlbumViewModel = viewModel()) {
                     .padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("相册", style = MaterialTheme.typography.displayLarge, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.album_title), style = MaterialTheme.typography.displayLarge, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))
                 Text(
                     "${items.size} 张",

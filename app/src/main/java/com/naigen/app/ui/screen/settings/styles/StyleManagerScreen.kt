@@ -31,6 +31,8 @@ import com.naigen.app.data.model.StylePreset
 import com.naigen.app.data.model.StyleSource
 import com.naigen.app.ui.components.GroupedList
 import com.naigen.app.ui.components.TagChip
+import androidx.compose.ui.res.stringResource
+import com.naigen.app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,7 +44,7 @@ fun StyleManagerScreen(vm: StyleManagerViewModel = viewModel(), nav: NavControll
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("风格管理") },
+                title = { Text(stringResource(R.string.style_title)) },
                 navigationIcon = {
                     IconButton(onClick = { nav.popBackStack() }) {
                         Icon(Icons.Outlined.ArrowBack, contentDescription = "返回")

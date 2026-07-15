@@ -31,6 +31,7 @@ import com.naigen.app.BuildConfig
 import com.naigen.app.R
 import com.naigen.app.ui.components.GroupedList
 import com.naigen.app.ui.components.ListRow
+import androidx.compose.ui.res.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,7 +41,7 @@ fun AboutScreen(nav: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("关于") },
+                title = { Text(stringResource(R.string.about_title)) },
                 navigationIcon = {
                     IconButton(onClick = { nav.popBackStack() }) {
                         Icon(Icons.Outlined.ArrowBack, contentDescription = "返回")
@@ -82,9 +83,9 @@ fun AboutScreen(nav: NavController) {
                 }
                 Spacer(Modifier.height(16.dp))
                 Text("NaiGen", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                // 格式: 构建次数 / 真实版本号（不加 V）
+                // 格式: 构建次数(去掉200前缀) / 真实版本号
                 Text(
-                    "${BuildConfig.BUILD_NUMBER} / ${BuildConfig.SEMVER}",
+                    "${BuildConfig.BUILD_NUMBER - 20000} / ${BuildConfig.SEMVER}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -176,7 +177,7 @@ fun AboutScreen(nav: NavController) {
             }
 
             Text(
-                "NaiGen ${BuildConfig.BUILD_NUMBER} / ${BuildConfig.SEMVER}\nMIT License · Copyright © 2026 ook826092-cloud",
+                "NaiGen ${BuildConfig.BUILD_NUMBER - 20000} / ${BuildConfig.SEMVER}\nMIT License · Copyright © 2026 ook826092-cloud",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier

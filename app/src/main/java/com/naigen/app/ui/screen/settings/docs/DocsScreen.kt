@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.naigen.app.ui.components.GroupedList
 import com.naigen.app.ui.components.ListRow
+import androidx.compose.ui.res.stringResource
+import com.naigen.app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,7 +29,7 @@ fun DocsScreen(nav: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("说明文档") },
+                title = { Text(stringResource(R.string.settings_docs)) },
                 navigationIcon = {
                     IconButton(onClick = { nav.popBackStack() }) {
                         Icon(Icons.Outlined.ArrowBack, contentDescription = "返回")

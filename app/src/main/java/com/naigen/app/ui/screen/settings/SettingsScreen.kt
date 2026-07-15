@@ -32,6 +32,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.naigen.app.ui.navigation.SubDest
+import androidx.compose.ui.res.stringResource
+import com.naigen.app.R
 
 @Composable
 fun SettingsScreen(vm: SettingsViewModel = viewModel(), nav: NavController) {
@@ -44,7 +46,7 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel(), nav: NavController) {
             .padding(bottom = 32.dp)
     ) {
         Text(
-            "设置",
+            stringResource(R.string.settings_title),
             style = MaterialTheme.typography.displayLarge,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 12.dp)

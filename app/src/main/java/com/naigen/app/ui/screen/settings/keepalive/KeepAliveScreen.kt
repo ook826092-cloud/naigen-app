@@ -38,6 +38,8 @@ import com.naigen.app.util.keepalive.ManufacturerHelper
 import com.naigen.app.util.keepalive.ManufacturerHelper.KeepAlivePage
 import com.naigen.app.util.keepalive.ManufacturerHelper.Manufacturer
 import com.naigen.app.util.keepalive.ShizukuHelper
+import androidx.compose.ui.res.stringResource
+import com.naigen.app.R
 
 data class KeepAliveState(
     val manufacturer: Manufacturer,
@@ -76,7 +78,7 @@ fun KeepAliveScreen(nav: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("后台保活") },
+                title = { Text(stringResource(R.string.keepalive_title)) },
                 navigationIcon = {
                     IconButton(onClick = { nav.popBackStack() }) {
                         Icon(Icons.Outlined.ArrowBack, contentDescription = "返回")

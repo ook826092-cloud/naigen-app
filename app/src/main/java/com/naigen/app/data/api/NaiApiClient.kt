@@ -63,14 +63,32 @@ object NaiApiClient {
     suspend fun createJob(baseUrl: String, body: CreateJobRequest): CreateJobResponse =
         withContext(Dispatchers.IO) {
             val payload = json.encodeToString(CreateJobRequest.serializer(), body)
-            com.naigen.app.util.AppLog.network("POST", "${baseUrl.trimEnd('/')}/api/jobs", payload)
+            val fullUrl = "${baseUrl.trimEnd('/')}/api/jobs"
+            com.naigen.app.util.AppLog.network(
+                method = "POST",
+                url = fullUrl,
+                requestHeaders = mapOf("Content-Type" to "application/json"),
+                requestBody = payload,
+                responseCode = 0,
+                responseHeaders = emptyMap(),
+                responseBody = ""
+            )
             val req = Request.Builder()
-                .url("${baseUrl.trimEnd('/')}/api/jobs")
+                .url(fullUrl)
                 .post(payload.toRequestBody(JSON_MEDIA_TYPE))
                 .build()
             client.newCall(req).execute().use { resp ->
                 val raw = resp.body?.string().orEmpty()
-                com.naigen.app.util.AppLog.network("POST", "/api/jobs", "", resp.code, raw)
+                val respHeaders = resp.headers.associate { it.first to it.second }
+                com.naigen.app.util.AppLog.network(
+                    method = "POST",
+                    url = fullUrl,
+                    requestHeaders = mapOf("Content-Type" to "application/json"),
+                    requestBody = payload,
+                    responseCode = resp.code,
+                    responseHeaders = respHeaders,
+                    responseBody = raw
+                )
                 if (!resp.isSuccessful) {
                     val parsed = runCatching {
                         json.decodeFromString(CreateJobResponse.serializer(), raw)

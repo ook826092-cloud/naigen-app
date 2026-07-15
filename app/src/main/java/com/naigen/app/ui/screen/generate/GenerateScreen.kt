@@ -38,6 +38,8 @@ import com.naigen.app.util.DateUtils
 import com.naigen.app.util.ImageSaver
 import com.naigen.app.util.ShareUtils
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.stringResource
+import com.naigen.app.R
 
 @Composable
 fun GenerateScreen(vm: GenerateViewModel = viewModel()) {
@@ -65,7 +67,7 @@ fun GenerateScreen(vm: GenerateViewModel = viewModel()) {
                 .padding(bottom = 88.dp)
         ) {
             Text(
-                "生成",
+                stringResource(R.string.gen_title),
                 style = MaterialTheme.typography.displayLarge,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp)

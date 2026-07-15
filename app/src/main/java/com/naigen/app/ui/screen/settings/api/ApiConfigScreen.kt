@@ -20,6 +20,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.naigen.app.ui.screen.settings.SettingsViewModel
+import androidx.compose.ui.res.stringResource
+import com.naigen.app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,7 +33,7 @@ fun ApiConfigScreen(vm: SettingsViewModel = viewModel(), nav: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("API 服务商") },
+                title = { Text(stringResource(R.string.api_title)) },
                 navigationIcon = {
                     IconButton(onClick = { nav.popBackStack() }) {
                         Icon(Icons.Outlined.ArrowBack, contentDescription = "返回")
