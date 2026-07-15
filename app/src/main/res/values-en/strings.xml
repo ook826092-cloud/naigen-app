@@ -169,14 +169,12 @@
     <!-- Album 补充 -->
     <string name="album_no_image">No image</string>
     <string name="album_clear_title">Clear album</string>
-    <string name="album_clear_confirm">Delete all %1$d images? This cannot be undone.</string>
     <string name="album_close">Close</string>
 
     <!-- Style Manager 补充 -->
     <string name="style_search_hint">Search style name / key</string>
     <string name="style_nsfw_show">Show NSFW styles</string>
     <string name="style_delete_title">Delete custom style</string>
-    <string name="style_delete_confirm">Delete "%1$s"?</string>
     <string name="style_add_title">New custom style</string>
     <string name="style_name_label">Style name *</string>
     <string name="style_artist_label">Artist string * (e.g.: by wlop, artist:mika pikazo)</string>
@@ -185,9 +183,7 @@
 
     <!-- API Config 补充 -->
     <string name="api_provider_label">Provider</string>
-    <string name="api_show_plaintext">Show plaintext</string>
     <string name="api_nsfw_title">Show NSFW styles</string>
-    <string name="api_nsfw_desc">When enabled, questionable/explicit styles appear in style manager</string>
 
     <!-- Theme -->
     <string name="theme_title">Dark mode</string>
@@ -203,9 +199,7 @@
     <string name="logs_select_action">Select action</string>
     <string name="logs_copy">Copy</string>
     <string name="logs_share">Share</string>
-    <string name="logs_export">Export</string>
     <string name="logs_deleted">Deleted</string>
-    <string name="logs_cleared">Cleared</string>
     <string name="logs_time_label">Time</string>
     <string name="logs_duration_label">Duration</string>
     <string name="logs_tab_request_header">Request Headers</string>
