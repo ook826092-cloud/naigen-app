@@ -85,7 +85,7 @@ object AppLog {
     internal fun redactToken(raw: String): String {
         if (raw.isEmpty()) return raw
         return raw
-            .replace(Regex("([?&]token=)[^&#\\s\"]+"), "$1***REDACTED***")
+            .replace(Regex("((?:[?&]|^)token=)[^&#\\s\"]+"), "$1***REDACTED***")
             .replace(Regex("(\"token\"\\s*:\\s*\")[^\"]*(\")"), "$1***REDACTED***$2")
     }
 
