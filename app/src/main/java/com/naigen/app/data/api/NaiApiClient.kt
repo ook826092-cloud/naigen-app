@@ -45,7 +45,7 @@ class NaiApiClient(
      * 这里单独放宽 readTimeout 到 5 分钟。其余超时与主 client 一致。
      */
     private val downloadClient: OkHttpClient by lazy {
-        client.newBuilder()
+        this.client.newBuilder()
             .readTimeout(300, TimeUnit.SECONDS)
             .build()
     }
