@@ -152,6 +152,16 @@ android {
         }
     }
 
+    // 纯 JVM 单元测试（testDebugUnitTest）不在 Android 设备上运行，
+    // android.util.Log 等 stub 方法默认会抛 RuntimeException。
+    // 开启后这些调用返回默认值（Log.x 返回 0，Toast 等 no-op），
+    // 让 AppLog.d/i/w/e 在测试中可被安全调用。
+    testOptions {
+        unitTests {
+            isReturnDefaultValues = true
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
