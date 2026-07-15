@@ -40,15 +40,12 @@ fun LogsScreen(nav: NavController) {
 
     var tab by remember { mutableStateOf(0) }
     var appFiles by remember { mutableStateOf(AppLog.getAppFiles()) }
-    var networkEntries by remember { mutableStateOf(AppLog.getNetworkEntries()) }
     var networkFiles by remember { mutableStateOf(AppLog.getNetworkFiles()) }
 
     var detailFile: Pair<String, Boolean>? by remember { mutableStateOf(null) }
     var showCurrentLog by remember { mutableStateOf(false) }
-    var detailNetwork: AppLog.NetworkEntry? by remember { mutableStateOf(null) }
     var longPressFile: Pair<String, Boolean>? by remember { mutableStateOf(null) }
     var longPressCurrent by remember { mutableStateOf(false) }
-    var longPressNetwork: AppLog.NetworkEntry? by remember { mutableStateOf(null) }
 
     // 详情页覆盖
     if (showCurrentLog) {
@@ -72,10 +69,6 @@ fun LogsScreen(nav: NavController) {
                 val file = AppLog.getFile(fileName, isNetwork = isNet)
                 if (file != null) shareFile(ctx, file, fileName)
             })
-        return
-    }
-    detailNetwork?.let { entry ->
-        NetworkDetailPage(entry, { detailNetwork = null }, ctx, snackbarHostState, scope)
         return
     }
 
@@ -141,10 +134,10 @@ fun LogsScreen(nav: NavController) {
                                     size = f.size,
                                     modified = f.modified,
                                     onClick = {
-                                        // 先从内存找 NetworkEntry（有4子Tab），找不到用文件内容
-                                        val entry = AppLog.getNetworkEntries().find { it.fileName == f.name }
-                                        if (entry != null) detailNetwork = entry
-                                        else detailFile = Pair(f.name, true)
+                                        // 恢复「之前的 UI」：直接打开完整日志文件（朴素全文本，
+                                        // 含概览 + 请求头/请求体/响应头/响应体），不走分 Tab 代码风格页。
+                                        // 读的是落盘文件，持久化逻辑不受影响。
+                                        detailFile = Pair(f.name, true)
                                     },
                                     onLongPress = { longPressFile = Pair(f.name, true) }
                                 )
@@ -182,29 +175,6 @@ fun LogsScreen(nav: NavController) {
             dismissButton = { TextButton(onClick = { longPressCurrent = false }) { Text(stringResource(R.string.common_cancel)) } }
         )
     }
-    longPressNetwork?.let { entry ->
-        AlertDialog(
-            onDismissRequest = { longPressNetwork = null },
-            title = { Text(entry.url.take(50), style = MaterialTheme.typography.labelMedium) },
-            text = { Text(stringResource(R.string.logs_select_action)) },
-            confirmButton = {
-                Row {
-                    TextButton(onClick = {
-                        val file = AppLog.getFile(entry.fileName, isNetwork = true)
-                        if (file != null) shareFile(ctx, file, entry.fileName)
-                        longPressNetwork = null
-                    }) { Text(stringResource(R.string.logs_share)) }
-                    TextButton(onClick = {
-                        val file = AppLog.getFile(entry.fileName, isNetwork = true)
-                        if (file != null) { scope.launch { val ok = exportToDownloads(ctx, file, entry.fileName); snackbarHostState.showSnackbar(if (ok) "已导出" else "导出失败") } }
-                        longPressNetwork = null
-                    }) { Text(stringResource(R.string.logs_export)) }
-                    TextButton(onClick = { AppLog.deleteFile(entry.fileName, isNetwork = true); networkEntries = AppLog.getNetworkEntries(); longPressNetwork = null; scope.launch { snackbarHostState.showSnackbar("已删除") } }) { Text(stringResource(R.string.logs_deleted), color = MaterialTheme.colorScheme.error) }
-                }
-            },
-            dismissButton = { TextButton(onClick = { longPressNetwork = null }) { Text(stringResource(R.string.common_cancel)) } }
-        )
-    }
 }
 
 // ── 网络请求文件列表项 ─────────────────────────────────────────────────
@@ -239,68 +209,6 @@ private fun NetworkFileItem(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun NetworkDetailPage(
-    entry: AppLog.NetworkEntry,
-    onBack: () -> Unit,
-    ctx: android.content.Context,
-    snackbarHostState: SnackbarHostState,
-    scope: kotlinx.coroutines.CoroutineScope
-) {
-    var subTab by remember { mutableStateOf(0) }
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("${entry.method} ${entry.responseCode}", style = MaterialTheme.typography.labelMedium) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, contentDescription = "返回") } },
-                actions = {
-                    IconButton(onClick = {
-                        val file = AppLog.getFile(entry.fileName, isNetwork = true)
-                        if (file != null) shareFile(ctx, file, entry.fileName)
-                    }) { Icon(Icons.Outlined.Share, contentDescription = "分享") }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
-            )
-        }
-    ) { padding ->
-        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
-            // 概览
-            Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                Text("URL", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(entry.url, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
-                Spacer(Modifier.height(4.dp))
-                Row {
-                    Text("时间: ${DateUtils.display(entry.timestamp)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.width(12.dp))
-                    Text("耗时: ${entry.durationMs}ms", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            HorizontalDivider()
-            // 4 Tab
-            TabRow(selectedTabIndex = subTab) {
-                Tab(selected = subTab == 0, onClick = { subTab = 0 }, text = { Text("请求头", style = MaterialTheme.typography.labelSmall) })
-                Tab(selected = subTab == 1, onClick = { subTab = 1 }, text = { Text("请求体", style = MaterialTheme.typography.labelSmall) })
-                Tab(selected = subTab == 2, onClick = { subTab = 2 }, text = { Text("响应头", style = MaterialTheme.typography.labelSmall) })
-                Tab(selected = subTab == 3, onClick = { subTab = 3 }, text = { Text("响应体", style = MaterialTheme.typography.labelSmall) })
-            }
-            // 内容（代码风格：等宽字体 + 深色背景）
-            val content = when (subTab) {
-                0 -> if (entry.requestHeaders.isEmpty()) "(空)" else entry.requestHeaders.entries.joinToString("\n") { "${it.key}: ${it.value}" }
-                1 -> if (entry.requestBody.isBlank()) "(空)" else entry.requestBody
-                2 -> if (entry.responseHeaders.isEmpty()) "(空)" else entry.responseHeaders.entries.joinToString("\n") { "${it.key}: ${it.value}" }
-                3 -> if (entry.responseBody.isBlank()) "(空)" else entry.responseBody
-                else -> ""
-            }
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
-                contentPadding = PaddingValues(16.dp)
-            ) {
-                item {
-                    Text(content, style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurface)
-                }
-            }
-        }
-    }
-}
 
 // ── 应用日志文件列表项 ─────────────────────────────────────────────────
 
