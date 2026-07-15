@@ -19,30 +19,22 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.navigation.NavController
 import com.naigen.app.util.AppLog
 import com.naigen.app.util.DateUtils
 import kotlinx.coroutines.launch
-import androidx.compose.ui.res.stringResource
-import com.naigen.app.R
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun LogsScreen(nav: NavController) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    var tab by remember { mutableStateOf(0) } // 0=实时日志, 1=日志文件
     var entries by remember { mutableStateOf(AppLog.getEntries()) }
-    var logFiles by remember { mutableStateOf(AppLog.getLogFiles()) }
     var filter by remember { mutableStateOf(AppLog.Level.DEBUG) }
-    var selectedFile by remember { mutableStateOf<String?>(null) }
-    var showSettings by remember { mutableStateOf(false) }
-
-    // 自动删除设置
-    var maxAgeHours by remember { mutableStateOf(0) } // 0=不按时间删
-    var maxSizeMB by remember { mutableStateOf(0) }   // 0=不按大小删
+    var showFullFile by remember { mutableStateOf(false) }
 
     val filtered = remember(entries, filter) {
         if (filter == AppLog.Level.DEBUG) entries
@@ -52,41 +44,48 @@ fun LogsScreen(nav: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.logs_title)) },
+                title = { Text("应用日志") },
                 navigationIcon = {
                     IconButton(onClick = { nav.popBackStack() }) {
                         Icon(Icons.Outlined.ArrowBack, contentDescription = "返回")
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showSettings = true }) {
-                        Icon(Icons.Outlined.Settings, contentDescription = "自动删除设置")
+                    // 分享整个日志文件
+                    IconButton(onClick = {
+                        val file = AppLog.getFile()
+                        if (file != null && file.exists()) {
+                            val uri = FileProvider.getUriForFile(
+                                ctx,
+                                "${ctx.packageName}.fileprovider",
+                                file
+                            )
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                putExtra(Intent.EXTRA_SUBJECT, "NaiGen app.log")
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            ctx.startActivity(Intent.createChooser(shareIntent, "分享日志文件"))
+                        } else {
+                            scope.launch { snackbarHostState.showSnackbar("日志文件不存在") }
+                        }
+                    }) {
+                        Icon(Icons.Outlined.Share, contentDescription = "分享日志文件")
                     }
-                    if (tab == 0) {
-                        IconButton(onClick = {
-                            val text = AppLog.exportAll()
-                            val cm = ctx.getSystemService(android.content.ClipboardManager::class.java)
-                            cm?.setPrimaryClip(android.content.ClipData.newPlainText("logs", text))
-                            scope.launch { snackbarHostState.showSnackbar("已复制 ${entries.size} 条日志") }
-                        }) {
-                            Icon(Icons.Outlined.Share, contentDescription = "导出")
-                        }
-                        IconButton(onClick = {
-                            AppLog.clearBufferOnly()
-                            entries = AppLog.getEntries()
-                            scope.launch { snackbarHostState.showSnackbar("内存日志已清空") }
-                        }) {
-                            Icon(Icons.Outlined.Delete, contentDescription = "清空", tint = MaterialTheme.colorScheme.error)
-                        }
-                    } else {
-                        IconButton(onClick = {
-                            AppLog.clearAll()
-                            entries = AppLog.getEntries()
-                            logFiles = AppLog.getLogFiles()
-                            scope.launch { snackbarHostState.showSnackbar("所有日志已清空") }
-                        }) {
-                            Icon(Icons.Outlined.Delete, contentDescription = "清空全部", tint = MaterialTheme.colorScheme.error)
-                        }
+                    // 清空
+                    IconButton(onClick = {
+                        AppLog.clearAll()
+                        entries = AppLog.getEntries()
+                        scope.launch { snackbarHostState.showSnackbar("日志已清空") }
+                    }) {
+                        Icon(Icons.Outlined.Delete, contentDescription = "清空", tint = MaterialTheme.colorScheme.error)
+                    }
+                    // 刷新
+                    IconButton(onClick = {
+                        entries = AppLog.getEntries()
+                    }) {
+                        Icon(Icons.Outlined.Refresh, contentDescription = "刷新")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -97,107 +96,59 @@ fun LogsScreen(nav: NavController) {
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
-            // Tab 切换
-            TabRow(selectedTabIndex = tab) {
-                Tab(selected = tab == 0, onClick = { tab = 0 },
-                    text = { Text("实时日志 (${entries.size})") })
-                Tab(selected = tab == 1, onClick = {
-                    tab = 1
-                    logFiles = AppLog.getLogFiles()
-                }, text = { Text("日志文件 (${AppLog.getLogFileCount()})") })
+            // 文件信息
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Outlined.Description, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    "app.log · ${formatSize(AppLog.getFileSize())} · ${entries.size} 条内存日志",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = { showFullFile = true }) { Text("查看完整文件") }
             }
 
-            if (tab == 0) {
-                // ── 实时日志 ──
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    FilterChipMini("全部", filter == AppLog.Level.DEBUG) { filter = AppLog.Level.DEBUG }
-                    FilterChipMini("网络", filter == AppLog.Level.NETWORK) { filter = AppLog.Level.NETWORK }
-                    FilterChipMini("信息", filter == AppLog.Level.INFO) { filter = AppLog.Level.INFO }
-                    FilterChipMini("警告", filter == AppLog.Level.WARN) { filter = AppLog.Level.WARN }
-                    FilterChipMini("错误", filter == AppLog.Level.ERROR) { filter = AppLog.Level.ERROR }
-                }
+            // 过滤器
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                FilterChipMini("全部", filter == AppLog.Level.DEBUG) { filter = AppLog.Level.DEBUG }
+                FilterChipMini("网络", filter == AppLog.Level.NETWORK) { filter = AppLog.Level.NETWORK }
+                FilterChipMini("信息", filter == AppLog.Level.INFO) { filter = AppLog.Level.INFO }
+                FilterChipMini("警告", filter == AppLog.Level.WARN) { filter = AppLog.Level.WARN }
+                FilterChipMini("错误", filter == AppLog.Level.ERROR) { filter = AppLog.Level.ERROR }
+            }
 
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    items(filtered) { entry ->
-                        LogEntryCard(entry)
-                    }
-                }
-            } else {
-                // ── 日志文件列表 ──
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "总大小: ${formatSize(AppLog.getTotalSize())} · ${logFiles.size} 个文件",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TextButton(onClick = { logFiles = AppLog.getLogFiles() }) { Text("刷新") }
-                }
-
-                if (logFiles.isEmpty()) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("暂无日志文件", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        items(logFiles, key = { it.name }) { logFile ->
-                            LogFileCard(
-                                logFile = logFile,
-                                onClick = { selectedFile = logFile.name },
-                                onShare = {
-                                    // 用真正的系统分享 Intent
-                                    val file = logFile.file
-                                    val uri = androidx.core.content.FileProvider.getUriForFile(
-                                        ctx,
-                                        "${ctx.packageName}.fileprovider",
-                                        file
-                                    )
-                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "text/plain"
-                                        putExtra(Intent.EXTRA_STREAM, uri)
-                                        putExtra(Intent.EXTRA_SUBJECT, logFile.name)
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    }
-                                    ctx.startActivity(Intent.createChooser(shareIntent, "分享日志文件"))
-                                },
-                                onDelete = {
-                                    AppLog.deleteFile(logFile.name)
-                                    logFiles = AppLog.getLogFiles()
-                                    scope.launch { snackbarHostState.showSnackbar("已删除 ${logFile.name}") }
-                                }
-                            )
-                        }
-                    }
+            // 日志列表
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                items(filtered) { entry ->
+                    LogEntryCard(entry)
                 }
             }
         }
     }
 
-    // 文件内容查看弹窗
-    selectedFile?.let { fileName ->
-        val content = AppLog.getLogFileContent(fileName)
+    // 完整文件查看弹窗
+    if (showFullFile) {
+        val content = remember { AppLog.getFileContent() }
         AlertDialog(
-            onDismissRequest = { selectedFile = null },
-            title = { Text(fileName, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium) },
+            onDismissRequest = { showFullFile = false },
+            title = { Text("app.log (${formatSize(AppLog.getFileSize())})", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium) },
             text = {
-                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)) {
+                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 500.dp)) {
                     item {
                         Text(
-                            content.take(5000),
+                            content.takeLast(20000),
                             style = MaterialTheme.typography.labelSmall,
                             fontFamily = FontFamily.Monospace
                         )
@@ -207,30 +158,20 @@ fun LogsScreen(nav: NavController) {
             confirmButton = {
                 Row {
                     TextButton(onClick = {
-                        val cm = ctx.getSystemService(android.content.ClipboardManager::class.java)
-                        cm?.setPrimaryClip(android.content.ClipData.newPlainText(fileName, content))
-                        scope.launch { snackbarHostState.showSnackbar("已复制到剪贴板") }
-                    }) { Text("复制") }
-                    TextButton(onClick = { selectedFile = null }) { Text("关闭") }
+                        val file = AppLog.getFile()
+                        if (file != null && file.exists()) {
+                            val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", file)
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            ctx.startActivity(Intent.createChooser(shareIntent, "分享日志文件"))
+                        }
+                    }) { Text("分享") }
+                    TextButton(onClick = { showFullFile = false }) { Text("关闭") }
                 }
             }
-        )
-    }
-
-    // 自动删除设置弹窗
-    if (showSettings) {
-        AutoDeleteSettingsDialog(
-            maxAgeHours = maxAgeHours,
-            maxSizeMB = maxSizeMB,
-            onAgeChange = { maxAgeHours = it },
-            onSizeChange = { maxSizeMB = it },
-            onConfirm = {
-                AppLog.maxAgeMs = if (maxAgeHours > 0) maxAgeHours * 3600_000L else 0
-                AppLog.maxSizeBytes = if (maxSizeMB > 0) maxSizeMB * 1024 * 1024L else 0
-                showSettings = false
-                scope.launch { snackbarHostState.showSnackbar("自动删除已设置") }
-            },
-            onDismiss = { showSettings = false }
         )
     }
 }
@@ -270,9 +211,9 @@ private fun LogEntryCard(entry: AppLog.Entry) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(6.dp))
+            .clip(RoundedCornerShape(4.dp))
             .background(MaterialTheme.colorScheme.surface)
-            .padding(10.dp)
+            .padding(8.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -281,16 +222,16 @@ private fun LogEntryCard(entry: AppLog.Entry) {
                 color = androidx.compose.ui.graphics.Color.White,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
-                    .clip(RoundedCornerShape(4.dp))
+                    .clip(RoundedCornerShape(3.dp))
                     .background(levelColor)
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                    .padding(horizontal = 4.dp, vertical = 1.dp)
             )
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(6.dp))
             Text(DateUtils.relative(entry.timestamp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(6.dp))
             Text(entry.tag, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
         }
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(2.dp))
         Text(
             entry.message,
             style = MaterialTheme.typography.bodySmall,
@@ -298,148 +239,15 @@ private fun LogEntryCard(entry: AppLog.Entry) {
             color = MaterialTheme.colorScheme.onSurface
         )
         entry.throwable?.let { t ->
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(2.dp))
             Text(
-                t.stackTraceToString().take(500),
+                t.stackTraceToString().take(300),
                 style = MaterialTheme.typography.labelSmall,
                 fontFamily = FontFamily.Monospace,
                 color = MaterialTheme.colorScheme.error
             )
         }
     }
-}
-
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-@Composable
-private fun LogFileCard(
-    logFile: AppLog.LogFile,
-    onClick: () -> Unit,
-    onShare: () -> Unit,
-    onDelete: () -> Unit
-) {
-    var showActions by remember { mutableStateOf(false) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = { showActions = true }
-            )
-            .padding(12.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            // 崩溃文件用红色图标
-            Icon(
-                if (logFile.isCrash) Icons.Outlined.Warning else Icons.Outlined.Description,
-                contentDescription = null,
-                tint = if (logFile.isCrash) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(Modifier.width(8.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    logFile.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Medium
-                )
-                Row {
-                    Text(
-                        DateUtils.display(logFile.createdTime),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        formatSize(logFile.size),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    if (logFile.isCrash) {
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            "崩溃",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-        }
-
-        if (showActions) {
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                TextButton(onClick = { onShare(); showActions = false }) {
-                    Icon(Icons.Outlined.Share, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("导出", style = MaterialTheme.typography.labelMedium)
-                }
-                TextButton(onClick = { onDelete(); showActions = false }) {
-                    Icon(Icons.Outlined.Delete, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
-                    Spacer(Modifier.width(4.dp))
-                    Text("删除", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun AutoDeleteSettingsDialog(
-    maxAgeHours: Int,
-    maxSizeMB: Int,
-    onAgeChange: (Int) -> Unit,
-    onSizeChange: (Int) -> Unit,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    val ageValues = listOf(0, 1, 2, 12, 24, 168, 336, 720)
-    val ageLabels = listOf("不按时间", "1 小时", "2 小时", "12 小时", "24 小时", "7 天", "14 天", "30 天")
-    val sizeValues = listOf(0, 200, 500, 1024, 2048)
-    val sizeLabels = listOf("不按大小", "200 MB", "500 MB", "1 GB", "2 GB")
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("自动删除设置") },
-        text = {
-            Column {
-                Text("时间逻辑", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(4.dp))
-                com.naigen.app.ui.components.DropdownSelector(
-                    label = "保留时间",
-                    options = ageLabels,
-                    selectedIndex = ageValues.indexOf(maxAgeHours).coerceAtLeast(0),
-                    onSelected = { idx -> onAgeChange(ageValues[idx]) }
-                )
-
-                Spacer(Modifier.height(12.dp))
-
-                Text("存储逻辑", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(4.dp))
-                com.naigen.app.ui.components.DropdownSelector(
-                    label = "最大存储",
-                    options = sizeLabels,
-                    selectedIndex = sizeValues.indexOf(maxSizeMB).coerceAtLeast(0),
-                    onSelected = { idx -> onSizeChange(sizeValues[idx]) }
-                )
-
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "如果两个都选，按哪个先到删哪个。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        },
-        confirmButton = { TextButton(onClick = onConfirm) { Text("确定") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
-    )
 }
 
 private fun formatSize(bytes: Long): String {
