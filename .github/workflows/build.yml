@@ -1,0 +1,238 @@
+name: Build & Release
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 触发条件：
+#   - push 到 main 分支（每次更新都触发）
+#   - 手动触发（workflow_dispatch，可输入是否跳过版本自增）
+# ─────────────────────────────────────────────────────────────────────────────
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      skip_bump:
+        description: '跳过版本号自增（仅本次）'
+        required: false
+        default: 'false'
+        type: choice
+        options: [ 'false', 'true' ]
+
+permissions:
+  contents: write       # 创建 release / 提交 version.properties
+  actions: write        # 触发后续 workflow（如果有的话）
+  packages: write
+
+concurrency:
+  group: build-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────────────
+  # Job 1：自增版本号 + 提交回仓库
+  # ──────────────────────────────────────────────────────────────────────────
+  bump-version:
+    name: Bump Version
+    runs-on: ubuntu-latest
+    outputs:
+      version_name: ${{ steps.bump.outputs.VERSION_NAME }}
+      version_code: ${{ steps.bump.outputs.VERSION_CODE }}
+      skipped: ${{ steps.bump.outputs.SKIPPED }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Skip bump (manual trigger)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.skip_bump == 'true'
+        id: skip
+        run: |
+          # 仅读取版本号，不自增
+          source <(grep -E '^VERSION_(MAJOR|MINOR|PATCH)=' version.properties | sed 's/=/:=/')
+          MAJOR="${VERSION_MAJOR//=}"
+          MINOR="${VERSION_MINOR//=}"
+          PATCH="${VERSION_PATCH//=}"
+          NAME="${MAJOR}.${MINOR}.${PATCH}"
+          CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
+          echo "VERSION_NAME=$NAME" >> "$GITHUB_ENV"
+          echo "VERSION_CODE=$CODE" >> "$GITHUB_ENV"
+          echo "SKIPPED=true" >> "$GITHUB_OUTPUT"
+          echo "VERSION_NAME=$NAME" >> "$GITHUB_OUTPUT"
+          echo "VERSION_CODE=$CODE" >> "$GITHUB_OUTPUT"
+          echo "⏭️  跳过版本自增，使用当前版本 $NAME (code=$CODE)"
+
+      - name: Bump PATCH version +1
+        if: steps.skip.outputs.SKIPPED != 'true'
+        id: bump
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bash scripts/bump-version.sh --commit
+
+          # 重新读取自增后的值
+          source <(grep -E '^VERSION_(MAJOR|MINOR|PATCH)=' version.properties | sed 's/=/:=/')
+          MAJOR="${VERSION_MAJOR//=}"
+          MINOR="${VERSION_MINOR//=}"
+          PATCH="${VERSION_PATCH//=}"
+          NAME="${MAJOR}.${MINOR}.${PATCH}"
+          CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
+          echo "VERSION_NAME=$NAME" >> "$GITHUB_ENV"
+          echo "VERSION_CODE=$CODE" >> "$GITHUB_ENV"
+          echo "VERSION_NAME=$NAME" >> "$GITHUB_OUTPUT"
+          echo "VERSION_CODE=$CODE" >> "$GITHUB_OUTPUT"
+          echo "SKIPPED=false" >> "$GITHUB_OUTPUT"
+
+      - name: Pull latest (in case bump commit landed)
+        if: steps.skip.outputs.SKIPPED != 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Job 2：编译 Debug + Release APK
+  # ──────────────────────────────────────────────────────────────────────────
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+    needs: bump-version
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.9'
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Show version
+        run: |
+          echo "Building version: ${{ needs.bump-version.outputs.version_name }} (code=${{ needs.bump-version.outputs.version_code }})"
+          cat version.properties
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew || true
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Build Release APK
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Rename APKs with version
+        run: |
+          mkdir -p artifacts
+          VER="${{ needs.bump-version.outputs.version_name }}"
+          DATE=$(date +%Y%m%d)
+          find app/build/outputs/apk -name "*.apk" -type f | while read -r apk; do
+            base=$(basename "$apk" .apk)
+            newname="NaiGen-${VER}-${base}-${DATE}.apk"
+            cp "$apk" "artifacts/$newname"
+            echo "✓ $apk → artifacts/$newname"
+          done
+          ls -la artifacts/
+
+      - name: Generate SHA256 checksums
+        run: |
+          cd artifacts
+          sha256sum *.apk > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-${{ needs.bump-version.outputs.version_name }}
+          path: artifacts/*
+          retention-days: 30
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Job 3：创建 Release + 上传 APK
+  # ──────────────────────────────────────────────────────────────────────────
+  release:
+    name: Publish Release
+    runs-on: ubuntu-latest
+    needs: [ bump-version, build ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Download APK artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: apk-${{ needs.bump-version.outputs.version_name }}
+          path: artifacts
+
+      - name: Verify artifacts
+        run: |
+          ls -la artifacts/
+          test -n "$(ls artifacts/*.apk 2>/dev/null)" || { echo "❌ No APK found"; exit 1; }
+
+      - name: Create Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VER="${{ needs.bump-version.outputs.version_name }}"
+          CODE="${{ needs.bump-version.outputs.version_code }}"
+          TAG="v${VER}"
+
+          # 检查 tag 是否已存在，存在则用 -rN 后缀避免冲突
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping release creation"
+            exit 0
+          fi
+
+          # 生成 release notes
+          cat > release-notes.md <<EOF
+          # NaiGen v${VER}
+
+          **版本号**：${VER} (versionCode=${CODE})
+          **构建时间**：$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          **提交**：${{ github.sha }}
+
+          ## 下载
+
+          - 下方 Assets 中选择对应架构的 APK
+          - 校验文件完整性请参考 \`SHA256SUMS.txt\`
+          - 安装前需在手机「设置 → 安全」中允许「未知来源」
+
+          ## 安装
+
+          1. 下载 APK 文件到手机
+          2. 点击安装（需开启未知来源）
+          3. 打开 App，在「设置」中填入 Nai2API Token
+          4. 在「保活」页按提示开启厂商保活
+          5. 回到「生成」页输入提示词开始生图
+
+          ---
+          *本 release 由 GitHub Actions 自动生成*
+          EOF
+
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "NaiGen v${VER}" \
+            --notes-file release-notes.md \
+            --generate-notes \
+            artifacts/*.apk \
+            artifacts/SHA256SUMS.txt
+
+          echo "✅ Release $TAG created successfully"
