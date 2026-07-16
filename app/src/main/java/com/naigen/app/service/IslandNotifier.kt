@@ -8,9 +8,9 @@ import android.content.Intent
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
-import android.os.LocusId
 import android.provider.Settings
 import androidx.core.app.NotificationCompat
+import androidx.core.content.LocusId
 import com.naigen.app.MainActivity
 import com.naigen.app.NaiApplication
 import com.naigen.app.R
@@ -309,10 +309,6 @@ class IslandNotifier(private val context: Context) {
             .setOnlyAlertOnce(true)
             .setCategory(Notification.CATEGORY_PROGRESS)
             .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            builder.setLocusId(LocusId(LOCUS_ID_GENERATION))
-        }
 
         progressStyleClass.getDeclaredMethod("setBuilder", Notification.Builder::class.java)
             .invoke(progressStyle, builder)
