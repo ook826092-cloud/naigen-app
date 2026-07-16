@@ -39,7 +39,6 @@ fun AboutScreen(nav: NavController) {
     val ctx = LocalContext.current
 
     Scaffold(
-        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.about_title)) },

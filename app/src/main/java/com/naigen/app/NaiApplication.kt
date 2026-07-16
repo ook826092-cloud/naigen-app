@@ -1,10 +1,7 @@
 package com.naigen.app
 
 import android.app.Application
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.graphics.drawable.Drawable
-import android.os.Build
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
@@ -48,6 +45,10 @@ class NaiApplication : Application(), ImageLoaderFactory {
     lateinit var customStyleRepository: com.naigen.app.data.repository.CustomStyleRepository
         private set
 
+    /** 供应商注册中心（内置 NAI 2 API + 用户自定义） */
+    lateinit var providerRegistry: com.naigen.app.data.provider.ProviderRegistry
+        private set
+
     override fun onCreate() {
         super.onCreate()
 
@@ -58,19 +59,22 @@ class NaiApplication : Application(), ImageLoaderFactory {
         // 1) SettingsStore（DataStore + 加密 token）
         settingsStore = SettingsStore(this)
 
-        // 2) API client + Repository
+        // 2) 供应商注册中心（内置 NAI 2 API + 用户自定义 provider）
+        providerRegistry = com.naigen.app.data.provider.ProviderRegistry(this)
+
+        // 3) API client + Repository
         //    使用 NaiApiClient.shared 单例，与 Coil 共享 OkHttp 连接池
         naiApiClient = NaiApiClient.shared
         naiRepository = NaiRepository(naiApiClient, settingsStore)
 
-        // 3) Room DB
+        // 4) Room DB
         val db = AppDatabase.get(this)
         historyRepository = HistoryRepository(db.historyDao())
         favoritesRepository = FavoritesRepository(db.favoritesDao())
         customStyleRepository = com.naigen.app.data.repository.CustomStyleRepository(db.customStyleDao())
 
-        // 4) 通知渠道（Android 8.0+ 强制）
-        createNotificationChannels()
+        // 5) 通知渠道（委托给 NotificationService，集中管理渠道 + 权限 + 诊断）
+        com.naigen.app.service.NotificationService.createChannels(this)
     }
 
     /**
@@ -103,41 +107,6 @@ class NaiApplication : Application(), ImageLoaderFactory {
             .memoryCachePolicy(CachePolicy.ENABLED)
             .diskCachePolicy(CachePolicy.ENABLED)
             .build()
-    }
-
-    private fun createNotificationChannels() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val nm = getSystemService(NotificationManager::class.java) ?: return
-
-        NotificationChannel(
-            CHANNEL_GENERATION,
-            "生成进度",
-            NotificationManager.IMPORTANCE_LOW
-        ).apply {
-            description = "显示当前图像生成任务的轮询进度"
-            setShowBadge(false)
-        }.also { nm.createNotificationChannel(it) }
-
-        NotificationChannel(
-            CHANNEL_RESULT,
-            "生成结果",
-            NotificationManager.IMPORTANCE_DEFAULT
-        ).apply {
-            description = "生成完成或失败时通知"
-        }.also { nm.createNotificationChannel(it) }
-
-        // 上岛专用渠道：IMPORTANCE_DEFAULT（小米超级岛要求至少 DEFAULT 才能上岛）
-        NotificationChannel(
-            CHANNEL_ISLAND,
-            "实时进度（灵动岛）",
-            NotificationManager.IMPORTANCE_DEFAULT
-        ).apply {
-            description = "适配小米超级岛 / OPPO 流体云 / vivo 原子岛 / Android 16+ ProgressStyle"
-            setShowBadge(false)
-            // 不发声：进度更新频繁，仅视觉展示
-            setSound(null, null)
-            enableVibration(false)
-        }.also { nm.createNotificationChannel(it) }
     }
 
     companion object {

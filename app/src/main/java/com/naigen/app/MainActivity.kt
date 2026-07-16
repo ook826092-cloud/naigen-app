@@ -1,8 +1,5 @@
 package com.naigen.app
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -18,6 +15,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import com.naigen.app.service.NotificationService
 import com.naigen.app.ui.navigation.AppNavGraph
 import com.naigen.app.ui.theme.NaiTheme
 import com.naigen.app.ui.theme.ThemeMode
@@ -42,6 +40,8 @@ class MainActivity : AppCompatActivity() {
             navigationBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
         )
         requestNotificationPermissionIfNeeded()
+        // 诊断一次通知状态，便于排查「通知不显示」类问题
+        NotificationService.diagnose(this)
         setContent {
             val app = application as NaiApplication
             val themeKey by app.settingsStore.themeMode.collectAsState(initial = "system")
@@ -67,14 +67,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun requestNotificationPermissionIfNeeded() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
-        val granted = checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-        if (!granted) {
-            AppLog.i("MainActivity", "POST_NOTIFICATIONS 未授权，弹出请求对话框")
-            notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-            AppLog.i("MainActivity", "POST_NOTIFICATIONS 已授权")
-        }
+        NotificationService.requestPermissionIfNeeded(this, notifPermLauncher)
     }
 
     companion object {

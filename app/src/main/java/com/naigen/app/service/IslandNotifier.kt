@@ -17,23 +17,25 @@ import com.naigen.app.util.AppLog
 import org.json.JSONObject
 
 /**
- * 厂商灵动岛 / 流体云 / 焦点通知统一适配器。
+ * 厂商灵动岛 / 流体云 / 焦点通知统一适配器（v3）。
  *
  * 适配路径按优先级：
- *   1. 小米超级岛（澎湃OS 2/3）：通过 `miui.focus.param` 扩展 extra 接入官方模板
- *   2. Android 16+ Notification.ProgressStyle（API 36+）
- *   3. 标准进度通知（老安卓 / 不支持上岛的厂商）—— 兜底，确保至少有通知
+ *   1. 小米超级岛（澎湃OS 2/3）：`miui.focus.param`
+ *   2. vivo 原子岛（OriginOS 4+）：`live.window.param`
+ *   3. OPPO/一加 灵动岛（ColorOS 14+）：`op.activity.scene`
+ *   4. 荣耀灵动胶囊（MagicOS 8+）：`magic.window.param`
+ *   5. Android 16+ Notification.ProgressStyle（API 36+，通用路径）
+ *   6. 标准进度通知（老安卓 / 不支持上岛的厂商）—— 最终兜底
  *
- * 关键修复（v2）：
- *   - extras 在 builder 阶段用 addExtras 设置，不再在 build() 后修改（避免某些设备 extras 不可变导致崩溃）
- *   - buildStandardProgressNotification 也加 runCatching 保护
- *   - 整个 buildProgressNotification 加外层 runCatching 兜底
- *   - 加强诊断日志：记录 vendor、miuiFocusProtocol、走了哪个路径
+ * 关键设计：
+ *   - 每条路径都用 runCatching 包裹，失败自动降级到下一条
+ *   - extras 在 builder 阶段用 addExtras 设置（不在 build() 后修改，避免设备崩溃）
+ *   - 所有厂商协议都通过 Bundle extras 传递，反射仅用于 ProgressStyle（API 36+ 类）
+ *   - 厂商识别基于 Build.MANUFACTURER，保守匹配
  */
 class IslandNotifier(private val context: Context) {
 
     private val vendor: Vendor = detectVendor()
-
     private val miuiFocusProtocol: Int by lazy { readMiuiFocusProtocol() }
 
     private val progressNotificationId: Int = 1001
@@ -67,40 +69,61 @@ class IslandNotifier(private val context: Context) {
         val safeTotal = total.coerceAtLeast(1)
         val safeCurrent = current.coerceIn(0, safeTotal)
 
-        // 路径 1：小米超级岛（澎湃 OS 2/3）
+        // 按厂商优先级尝试，失败降级
+        val tried = mutableListOf<String>()
+
+        // 路径 1：小米超级岛
         if (vendor == Vendor.XIAOMI && miuiFocusProtocol in 2..3) {
             runCatching {
-                val notif = buildXiaomiIslandNotification(
-                    text = text, current = safeCurrent, total = safeTotal,
-                    indeterminate = indeterminate, jobBrief = jobBrief, contentIntent = pi
-                )
+                val notif = buildXiaomiIslandNotification(text, safeCurrent, safeTotal, indeterminate, jobBrief, pi)
                 AppLog.d("IslandNotifier", "使用小米超级岛通知")
                 return notif
-            }.onFailure {
-                AppLog.w("IslandNotifier", "小米超级岛构建失败，降级: ${it.message}")
-            }
+            }.onFailure { tried += "xiaomi:${it.message}" }
         }
 
-        // 路径 2：Android 16+ ProgressStyle
+        // 路径 2：vivo 原子岛
+        if (vendor == Vendor.VIVO) {
+            runCatching {
+                val notif = buildVivoAtomicIslandNotification(text, safeCurrent, safeTotal, indeterminate, jobBrief, pi)
+                AppLog.d("IslandNotifier", "使用 vivo 原子岛通知")
+                return notif
+            }.onFailure { tried += "vivo:${it.message}" }
+        }
+
+        // 路径 3：OPPO/一加 灵动岛
+        if (vendor == Vendor.OPPO) {
+            runCatching {
+                val notif = buildOppoLiveAlertNotification(text, safeCurrent, safeTotal, indeterminate, pi)
+                AppLog.d("IslandNotifier", "使用 OPPO 灵动岛通知")
+                return notif
+            }.onFailure { tried += "oppo:${it.message}" }
+        }
+
+        // 路径 4：荣耀灵动胶囊
+        if (vendor == Vendor.HONOR) {
+            runCatching {
+                val notif = buildHonorCapsuleNotification(text, safeCurrent, safeTotal, indeterminate, pi)
+                AppLog.d("IslandNotifier", "使用荣耀灵动胶囊通知")
+                return notif
+            }.onFailure { tried += "honor:${it.message}" }
+        }
+
+        // 路径 5：Android 16+ ProgressStyle（通用）
         if (Build.VERSION.SDK_INT >= API_LEVEL_ANDROID_16) {
             runCatching {
-                val notif = buildProgressStyleNotification(
-                    text = text, current = safeCurrent, total = safeTotal,
-                    indeterminate = indeterminate, contentIntent = pi
-                )
+                val notif = buildProgressStyleNotification(text, safeCurrent, safeTotal, indeterminate, pi)
                 AppLog.d("IslandNotifier", "使用 ProgressStyle 通知")
                 return notif
-            }.onFailure {
-                AppLog.w("IslandNotifier", "ProgressStyle 构建失败，降级: ${it.message}")
-            }
+            }.onFailure { tried += "progressStyle:${it.message}" }
         }
 
-        // 路径 3：标准进度通知（兜底）—— 也加 runCatching 保护
+        if (tried.isNotEmpty()) {
+            AppLog.w("IslandNotifier", "厂商上岛路径全部失败，降级到标准通知: $tried")
+        }
+
+        // 路径 6：标准进度通知（最终兜底）
         return runCatching {
-            buildStandardProgressNotification(
-                text = text, current = safeCurrent, total = safeTotal,
-                indeterminate = indeterminate, contentIntent = pi
-            )
+            buildStandardProgressNotification(text, safeCurrent, safeTotal, indeterminate, pi)
         }.getOrElse {
             AppLog.e("IslandNotifier", "标准通知构建也失败！用最小通知兜底", it)
             buildMinimalNotification(text, pi)
@@ -119,7 +142,6 @@ class IslandNotifier(private val context: Context) {
     fun notifyDone(title: String, text: String) {
         runCatching {
             notificationManager.cancel(progressNotificationId)
-
             val pi = PendingIntent.getActivity(
                 context, 1,
                 Intent(context, MainActivity::class.java).apply {
@@ -128,28 +150,24 @@ class IslandNotifier(private val context: Context) {
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
 
-            // 小米超级岛 done
-            if (vendor == Vendor.XIAOMI && miuiFocusProtocol in 2..3) {
-                runCatching {
-                    val notif = buildXiaomiIslandDoneNotification(title, text, pi)
-                    notificationManager.notify(resultNotificationId, notif)
-                    AppLog.d("IslandNotifier", "done 走小米超级岛")
-                    return
-                }.onFailure {
-                    AppLog.w("IslandNotifier", "小米超级岛 done 失败，降级: ${it.message}")
-                }
+            // 完成通知优先走厂商上岛 done 模板，再降级
+            val builtNotif = when {
+                vendor == Vendor.XIAOMI && miuiFocusProtocol in 2..3 ->
+                    runCatching { buildXiaomiIslandDoneNotification(title, text, pi) }
+                        .getOrElse { buildStandardDoneNotification(title, text, pi) }
+                vendor == Vendor.VIVO ->
+                    runCatching { buildVivoAtomicIslandDoneNotification(title, text, pi) }
+                        .getOrElse { buildStandardDoneNotification(title, text, pi) }
+                vendor == Vendor.OPPO ->
+                    runCatching { buildOppoLiveAlertDoneNotification(title, text, pi) }
+                        .getOrElse { buildStandardDoneNotification(title, text, pi) }
+                vendor == Vendor.HONOR ->
+                    runCatching { buildHonorCapsuleDoneNotification(title, text, pi) }
+                        .getOrElse { buildStandardDoneNotification(title, text, pi) }
+                else -> buildStandardDoneNotification(title, text, pi)
             }
-
-            val notif = NotificationCompat.Builder(context, NaiApplication.CHANNEL_RESULT)
-                .setContentTitle(title)
-                .setContentText(text)
-                .setSmallIcon(R.drawable.ic_app_placeholder)
-                .setContentIntent(pi)
-                .setAutoCancel(true)
-                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-                .build()
-            notificationManager.notify(resultNotificationId, notif)
-            AppLog.d("IslandNotifier", "done 走标准通知")
+            notificationManager.notify(resultNotificationId, builtNotif)
+            AppLog.d("IslandNotifier", "done 通知已发送 (vendor=$vendor)")
         }.onFailure {
             AppLog.e("IslandNotifier", "notifyDone 失败", it)
         }
@@ -166,8 +184,7 @@ class IslandNotifier(private val context: Context) {
         text: String, current: Int, total: Int, indeterminate: Boolean,
         jobBrief: String, contentIntent: PendingIntent
     ): Notification {
-        val percent = if (indeterminate || total <= 0) 0
-        else ((current.toLong() * 100) / total).toInt().coerceIn(0, 100)
+        val percent = computePercent(current, total, indeterminate)
         val progressColor = "#FF007AFF"
 
         val paramV2 = JSONObject().apply {
@@ -177,7 +194,6 @@ class IslandNotifier(private val context: Context) {
             put("updatable", true)
             put("ticker", text)
             put("aodTitle", context.getString(R.string.app_name) + " · 生成中")
-
             put("bigIslandArea", JSONObject().apply {
                 put("title", context.getString(R.string.app_name))
                 put("content", text)
@@ -188,23 +204,16 @@ class IslandNotifier(private val context: Context) {
                 })
                 put("picInfo", JSONObject().apply { put("type", 1) })
             })
-
             put("smallIslandArea", JSONObject().apply {
                 put("title", context.getString(R.string.app_name))
                 put("content", if (jobBrief.isNotBlank()) jobBrief else "$percent%")
                 put("picInfo", JSONObject().apply { put("type", 1) })
             })
         }
-
         val focusParam = JSONObject().apply { put("param_v2", paramV2) }.toString()
-        AppLog.d("IslandNotifier", "miui.focus.param (len=${focusParam.length}): $focusParam")
 
-        // 关键修复：extras 在 builder 阶段设置，而不是 build() 后修改
-        val extras = Bundle().apply {
-            putString("miui.focus.param", focusParam)
-        }
-
-        val builder = NotificationCompat.Builder(context, NaiApplication.CHANNEL_ISLAND)
+        val extras = Bundle().apply { putString("miui.focus.param", focusParam) }
+        return NotificationCompat.Builder(context, NaiApplication.CHANNEL_ISLAND)
             .setContentTitle(context.getString(R.string.app_name))
             .setContentText(text)
             .setSmallIcon(R.drawable.ic_app_placeholder)
@@ -217,8 +226,7 @@ class IslandNotifier(private val context: Context) {
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .addExtras(extras)
-
-        return builder.build()
+            .build()
     }
 
     private fun buildXiaomiIslandDoneNotification(
@@ -243,12 +251,8 @@ class IslandNotifier(private val context: Context) {
             })
         }
         val focusParam = JSONObject().apply { put("param_v2", paramV2) }.toString()
-
-        val extras = Bundle().apply {
-            putString("miui.focus.param", focusParam)
-        }
-
-        val builder = NotificationCompat.Builder(context, NaiApplication.CHANNEL_RESULT)
+        val extras = Bundle().apply { putString("miui.focus.param", focusParam) }
+        return NotificationCompat.Builder(context, NaiApplication.CHANNEL_RESULT)
             .setContentTitle(title)
             .setContentText(text)
             .setSmallIcon(R.drawable.ic_app_placeholder)
@@ -256,11 +260,191 @@ class IslandNotifier(private val context: Context) {
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .addExtras(extras)
-
-        return builder.build()
+            .build()
     }
 
-    // ── 路径 2：Android 16+ ProgressStyle ────────────────────────────────────
+    // ── 路径 2：vivo 原子岛 ──────────────────────────────────────────────────
+    //  vivo OriginOS 4+ 支持「原子岛」，通过 extras `live.window.param` 传 JSON。
+    //  协议字段：businessID / floatComponentType / floatComponentData{title,content,progress}
+
+    private fun buildVivoAtomicIslandNotification(
+        text: String, current: Int, total: Int, indeterminate: Boolean,
+        jobBrief: String, contentIntent: PendingIntent
+    ): Notification {
+        val percent = computePercent(current, total, indeterminate)
+        val componentData = JSONObject().apply {
+            put("title", context.getString(R.string.app_name))
+            put("content", text)
+            put("bottomText", if (jobBrief.isNotBlank()) jobBrief else "$percent%")
+            put("progress", percent)
+            put("progressColor", "#FF007AFF")
+        }
+        val liveParam = JSONObject().apply {
+            put("businessID", BUSINESS_NAIGEN_GENERATION)
+            put("floatComponentType", 1)  // 1 = 进度型
+            put("floatComponentData", componentData)
+        }.toString()
+
+        val extras = Bundle().apply { putString("live.window.param", liveParam) }
+        return NotificationCompat.Builder(context, NaiApplication.CHANNEL_ISLAND)
+            .setContentTitle(context.getString(R.string.app_name))
+            .setContentText(text)
+            .setSmallIcon(R.drawable.ic_app_placeholder)
+            .setOngoing(true)
+            .setContentIntent(contentIntent)
+            .setProgress(total, current.coerceAtMost(total), indeterminate)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+            .addExtras(extras)
+            .build()
+    }
+
+    private fun buildVivoAtomicIslandDoneNotification(
+        title: String, text: String, contentIntent: PendingIntent
+    ): Notification {
+        val componentData = JSONObject().apply {
+            put("title", title)
+            put("content", text)
+        }
+        val liveParam = JSONObject().apply {
+            put("businessID", BUSINESS_NAIGEN_GENERATION)
+            put("floatComponentType", 4)  // 4 = 文本型
+            put("floatComponentData", componentData)
+        }.toString()
+        val extras = Bundle().apply { putString("live.window.param", liveParam) }
+        return NotificationCompat.Builder(context, NaiApplication.CHANNEL_RESULT)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setSmallIcon(R.drawable.ic_app_placeholder)
+            .setContentIntent(contentIntent)
+            .setAutoCancel(true)
+            .addExtras(extras)
+            .build()
+    }
+
+    // ── 路径 3：OPPO/一加 灵动岛（LiveAlert）──────────────────────────────────
+    //  ColorOS 14+ 支持「灵动岛」，通过 extras `op.activity.scene` 传 JSON。
+    //  协议字段：scene / sceneName / dynamicSceneParams{title, content, progress}
+
+    private fun buildOppoLiveAlertNotification(
+        text: String, current: Int, total: Int, indeterminate: Boolean,
+        contentIntent: PendingIntent
+    ): Notification {
+        val percent = computePercent(current, total, indeterminate)
+        val sceneParams = JSONObject().apply {
+            put("title", context.getString(R.string.app_name))
+            put("content", text)
+            put("progress", percent)
+            put("isProgress", true)
+        }
+        val sceneParam = JSONObject().apply {
+            put("scene", "progress")
+            put("sceneName", context.getString(R.string.app_name))
+            put("dynamicSceneParams", sceneParams)
+        }.toString()
+
+        val extras = Bundle().apply { putString("op.activity.scene", sceneParam) }
+        return NotificationCompat.Builder(context, NaiApplication.CHANNEL_ISLAND)
+            .setContentTitle(context.getString(R.string.app_name))
+            .setContentText(text)
+            .setSmallIcon(R.drawable.ic_app_placeholder)
+            .setOngoing(true)
+            .setContentIntent(contentIntent)
+            .setProgress(total, current.coerceAtMost(total), indeterminate)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+            .addExtras(extras)
+            .build()
+    }
+
+    private fun buildOppoLiveAlertDoneNotification(
+        title: String, text: String, contentIntent: PendingIntent
+    ): Notification {
+        val sceneParams = JSONObject().apply {
+            put("title", title)
+            put("content", text)
+        }
+        val sceneParam = JSONObject().apply {
+            put("scene", "text")
+            put("sceneName", context.getString(R.string.app_name))
+            put("dynamicSceneParams", sceneParams)
+        }.toString()
+        val extras = Bundle().apply { putString("op.activity.scene", sceneParam) }
+        return NotificationCompat.Builder(context, NaiApplication.CHANNEL_RESULT)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setSmallIcon(R.drawable.ic_app_placeholder)
+            .setContentIntent(contentIntent)
+            .setAutoCancel(true)
+            .addExtras(extras)
+            .build()
+    }
+
+    // ── 路径 4：荣耀灵动胶囊 ────────────────────────────────────────────────
+    //  MagicOS 8+ 支持「灵动胶囊」，通过 extras `magic.window.param` 传 JSON。
+    //  协议字段：business / type / params{title, content, progress}
+
+    private fun buildHonorCapsuleNotification(
+        text: String, current: Int, total: Int, indeterminate: Boolean,
+        contentIntent: PendingIntent
+    ): Notification {
+        val percent = computePercent(current, total, indeterminate)
+        val params = JSONObject().apply {
+            put("title", context.getString(R.string.app_name))
+            put("content", text)
+            put("progress", percent)
+            put("isProgress", true)
+        }
+        val magicParam = JSONObject().apply {
+            put("business", BUSINESS_NAIGEN_GENERATION)
+            put("type", "progress")
+            put("params", params)
+        }.toString()
+
+        val extras = Bundle().apply { putString("magic.window.param", magicParam) }
+        return NotificationCompat.Builder(context, NaiApplication.CHANNEL_ISLAND)
+            .setContentTitle(context.getString(R.string.app_name))
+            .setContentText(text)
+            .setSmallIcon(R.drawable.ic_app_placeholder)
+            .setOngoing(true)
+            .setContentIntent(contentIntent)
+            .setProgress(total, current.coerceAtMost(total), indeterminate)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+            .addExtras(extras)
+            .build()
+    }
+
+    private fun buildHonorCapsuleDoneNotification(
+        title: String, text: String, contentIntent: PendingIntent
+    ): Notification {
+        val params = JSONObject().apply {
+            put("title", title)
+            put("content", text)
+        }
+        val magicParam = JSONObject().apply {
+            put("business", BUSINESS_NAIGEN_GENERATION)
+            put("type", "text")
+            put("params", params)
+        }.toString()
+        val extras = Bundle().apply { putString("magic.window.param", magicParam) }
+        return NotificationCompat.Builder(context, NaiApplication.CHANNEL_RESULT)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setSmallIcon(R.drawable.ic_app_placeholder)
+            .setContentIntent(contentIntent)
+            .setAutoCancel(true)
+            .addExtras(extras)
+            .build()
+    }
+
+    // ── 路径 5：Android 16+ ProgressStyle ────────────────────────────────────
 
     private fun buildProgressStyleNotification(
         text: String, current: Int, total: Int, indeterminate: Boolean,
@@ -270,7 +454,6 @@ class IslandNotifier(private val context: Context) {
         val segmentClass = Class.forName("android.app.Notification\$ProgressStyle\$Segment")
 
         val progressStyle = progressStyleClass.getDeclaredConstructor().newInstance()
-
         val accentColor = Color.parseColor("#FF007AFF")
         val grayColor = Color.parseColor("#FFD1D1D6")
         val remaining = (total - current).coerceAtLeast(0)
@@ -282,9 +465,8 @@ class IslandNotifier(private val context: Context) {
             Int::class.javaPrimitiveType, Int::class.javaPrimitiveType
         ).newInstance(remaining, grayColor)
 
-        val segmentsList = listOf(doneSegment, remainSegment)
         progressStyleClass.getDeclaredMethod("setProgressSegments", List::class.java)
-            .invoke(progressStyle, segmentsList)
+            .invoke(progressStyle, listOf(doneSegment, remainSegment))
         progressStyleClass.getDeclaredMethod("setProgress", Int::class.javaPrimitiveType)
             .invoke(progressStyle, current)
 
@@ -301,43 +483,45 @@ class IslandNotifier(private val context: Context) {
 
         progressStyleClass.getDeclaredMethod("setBuilder", Notification.Builder::class.java)
             .invoke(progressStyle, builder)
-        val notification = progressStyleClass.getDeclaredMethod("build").invoke(progressStyle) as Notification
-        return notification
+        return progressStyleClass.getDeclaredMethod("build").invoke(progressStyle) as Notification
     }
 
-    // ── 路径 3：标准进度通知（兜底） ─────────────────────────────────────────
+    // ── 路径 6：标准进度通知（最终兜底）──────────────────────────────────────
 
     private fun buildStandardProgressNotification(
         text: String, current: Int, total: Int, indeterminate: Boolean,
         contentIntent: PendingIntent
-    ): Notification {
-        val builder = NotificationCompat.Builder(context, NaiApplication.CHANNEL_GENERATION)
-            .setContentTitle(context.getString(R.string.app_name))
-            .setContentText(text)
-            .setSmallIcon(R.drawable.ic_app_placeholder)
-            .setOngoing(true)
-            .setContentIntent(contentIntent)
-            .setProgress(total, current.coerceAtMost(total), indeterminate)
-            .setOnlyAlertOnce(true)
-            .setSilent(true)
-            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+    ): Notification = NotificationCompat.Builder(context, NaiApplication.CHANNEL_GENERATION)
+        .setContentTitle(context.getString(R.string.app_name))
+        .setContentText(text)
+        .setSmallIcon(R.drawable.ic_app_placeholder)
+        .setOngoing(true)
+        .setContentIntent(contentIntent)
+        .setProgress(total, current.coerceAtMost(total), indeterminate)
+        .setOnlyAlertOnce(true)
+        .setSilent(true)
+        .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+        .setPriority(NotificationCompat.PRIORITY_LOW)
+        .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+        .build()
 
-        return builder.build()
-    }
+    private fun buildStandardDoneNotification(
+        title: String, text: String, contentIntent: PendingIntent
+    ): Notification = NotificationCompat.Builder(context, NaiApplication.CHANNEL_RESULT)
+        .setContentTitle(title)
+        .setContentText(text)
+        .setSmallIcon(R.drawable.ic_app_placeholder)
+        .setContentIntent(contentIntent)
+        .setAutoCancel(true)
+        .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+        .build()
 
-    /**
-     * 最小通知（所有路径都失败时的绝对兜底）。
-     * 只设置最小必需字段，确保 startForeground 不崩溃。
-     */
-    private fun buildMinimalNotification(text: String, contentIntent: PendingIntent): Notification {
-        return NotificationCompat.Builder(context, NaiApplication.CHANNEL_GENERATION)
+    private fun buildMinimalNotification(text: String, contentIntent: PendingIntent): Notification =
+        NotificationCompat.Builder(context, NaiApplication.CHANNEL_GENERATION)
             .setContentText(text)
             .setSmallIcon(R.drawable.ic_app_placeholder)
             .setContentIntent(contentIntent)
             .build()
-    }
 
     // ── 厂商识别 ──────────────────────────────────────────────────────────
 
@@ -358,17 +542,13 @@ class IslandNotifier(private val context: Context) {
         }
     }
 
-    private fun readMiuiFocusProtocol(): Int {
-        return runCatching {
-            val v = Settings.System.getInt(
-                context.contentResolver,
-                "notification_focus_protocol",
-                0
-            )
-            AppLog.i("IslandNotifier", "notification_focus_protocol = $v")
-            v
-        }.getOrDefault(0)
-    }
+    private fun readMiuiFocusProtocol(): Int = runCatching {
+        Settings.System.getInt(context.contentResolver, "notification_focus_protocol", 0)
+    }.getOrDefault(0)
+
+    private fun computePercent(current: Int, total: Int, indeterminate: Boolean): Int =
+        if (indeterminate || total <= 0) 0
+        else ((current.toLong() * 100) / total).toInt().coerceIn(0, 100)
 
     private companion object {
         const val API_LEVEL_ANDROID_16 = 36

@@ -27,7 +27,6 @@ fun DocsScreen(nav: NavController) {
     val base = "https://github.com/ook826092-cloud/naigen-app/blob/main"
 
     Scaffold(
-        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.settings_docs)) },
