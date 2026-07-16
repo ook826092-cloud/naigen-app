@@ -58,4 +58,17 @@ object GenerationBus {
     fun markFinished() {
         _isRunning.value = false
     }
+
+    /**
+     * 释放 [_results] 持有的图片字节。
+     *
+     * [GenResult.images] 内含 [GenImage.bytes]（单张可达数 MB），并发 6 张时
+     * 可能常驻几十 MB 内存。ViewModel 消费完结果后应调用本方法清空，
+     * 避免 StateFlow 长期持有大对象导致内存压力。
+     *
+     * 注意：仅清空结果列表，不清空 [progress]（消费方可能仍在引用当前进度状态）。
+     */
+    fun releaseResults() {
+        _results.value = emptyList()
+    }
 }

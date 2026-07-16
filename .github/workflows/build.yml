@@ -110,6 +110,20 @@ jobs:
       - name: Run Unit Tests
         run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
 
+      - name: Generate Kover Coverage Report
+        # 生成 XML + HTML 覆盖率报告，供后续接入 PR 评论或 Codecov
+        continue-on-error: true
+        run: ./gradlew koverXmlReport koverHtmlReport --no-daemon
+
+      - name: Upload Coverage Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            app/build/reports/kover/
+          retention-days: 14
+
       - name: Run Lint (non-blocking)
         # 静态分析：捕获未使用资源 / 缺失权限 / Compose 性能问题
         # continue-on-error=true：现有 lint 警告不阻塞发版（后续逐步清理）

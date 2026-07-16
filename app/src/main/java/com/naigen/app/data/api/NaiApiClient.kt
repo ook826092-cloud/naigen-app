@@ -1,5 +1,6 @@
 package com.naigen.app.data.api
 
+import com.naigen.app.BuildConfig
 import com.naigen.app.data.api.dto.BalanceResponse
 import com.naigen.app.data.api.dto.CreateJobRequest
 import com.naigen.app.data.api.dto.CreateJobResponse
@@ -224,17 +225,26 @@ class NaiApiClient(
             isLenient = true
         }
 
-        /** 共享 OkHttpClient（生产单例，Coil ImageLoader 也复用此连接池） */
+        /**
+         * 共享 OkHttpClient（生产单例，Coil ImageLoader 也复用此连接池）。
+         *
+         * 日志策略：
+         *   - debug 构建：挂 [HttpLoggingInterceptor] BODY 级别，方便开发时看完整请求响应
+         *   - release 构建：不挂 [HttpLoggingInterceptor]（避免敏感数据进 logcat + 多一次字符串拼接）；
+         *     网络日志走 [AppLog.network] 落盘到 App 私有目录，且会脱敏 token
+         */
         val sharedClient: OkHttpClient by lazy {
-            OkHttpClient.Builder()
+            val builder = OkHttpClient.Builder()
                 .connectTimeout(15, TimeUnit.SECONDS)
                 .readTimeout(60, TimeUnit.SECONDS)
                 .writeTimeout(15, TimeUnit.SECONDS)
                 .retryOnConnectionFailure(true)
-                .addInterceptor(HttpLoggingInterceptor().apply {
-                    level = HttpLoggingInterceptor.Level.BASIC
+            if (BuildConfig.DEBUG) {
+                builder.addInterceptor(HttpLoggingInterceptor().apply {
+                    level = HttpLoggingInterceptor.Level.BODY
                 })
-                .build()
+            }
+            builder.build()
         }
 
         /**

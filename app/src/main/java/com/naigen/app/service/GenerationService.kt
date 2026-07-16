@@ -9,9 +9,17 @@ import android.os.Build
 import android.os.IBinder
 import com.naigen.app.MainActivity
 import com.naigen.app.NaiApplication
+import com.naigen.app.data.db.entities.HistoryEntity
 import com.naigen.app.data.model.GenRequest
+import com.naigen.app.data.model.GenResult
 import com.naigen.app.data.repository.GenProgress
+import com.naigen.app.data.repository.NaiRepository
+import com.naigen.app.data.styles.SizeOptions
+import com.naigen.app.data.styles.StyleRegistry
+import com.naigen.app.util.AppLog
+import com.naigen.app.util.DateUtils
 import com.naigen.app.util.ImageSaver
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -44,7 +52,7 @@ class GenerationService : Service() {
      * 与 [NaiRepository.MAX_POLL_TIME_SEC] 共享，避免之前 60s 进度条上限与
      * 180s 轮询超时不一致导致进度条顶满后给用户「卡住」的错觉。
      */
-    private val expectedTotalSec = com.naigen.app.data.repository.NaiRepository.MAX_POLL_TIME_SEC
+    private val expectedTotalSec = NaiRepository.MAX_POLL_TIME_SEC
 
     /** 厂商灵动岛 / 流体云 / 标准通知统一适配器 */
     private lateinit var islandNotifier: IslandNotifier
@@ -58,8 +66,8 @@ class GenerationService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // 诊断日志：记录通知权限状态
-        val notifGranted = com.naigen.app.MainActivity.isNotificationPermissionGranted(this)
-        com.naigen.app.util.AppLog.i("GenService", "onStartCommand: notifGranted=$notifGranted intent=${intent != null}")
+        val notifGranted = MainActivity.isNotificationPermissionGranted(this)
+        AppLog.i("GenService", "onStartCommand: notifGranted=$notifGranted intent=${intent != null}")
 
         // 立即启动前台通知（Android 16 要求 6 秒内）
         try {
@@ -68,7 +76,7 @@ class GenerationService : Service() {
                 islandNotifier.buildProgressNotification("准备生成…", 0, expectedTotalSec)
             )
         } catch (e: Exception) {
-            com.naigen.app.util.AppLog.e("GenService", "startForeground 失败！notifGranted=$notifGranted", e)
+            AppLog.e("GenService", "startForeground 失败！notifGranted=$notifGranted", e)
             // 即使 startForeground 失败也继续，避免 Service 崩溃
         }
 
@@ -86,8 +94,8 @@ class GenerationService : Service() {
         val styleKey = intent.getStringExtra(EXTRA_STYLE) ?: "2.5d"
         val sizeKey = intent.getStringExtra(EXTRA_SIZE) ?: "竖图"
         val variants = intent.getIntExtra(EXTRA_VARIANTS, 1)
-            .coerceIn(1, com.naigen.app.data.repository.NaiRepository.MAX_VARIANTS)
-        com.naigen.app.util.AppLog.i("GenService", "onStartCommand: variants=" + variants + " style=" + styleKey + " size=" + sizeKey)
+            .coerceIn(1, NaiRepository.MAX_VARIANTS)
+        AppLog.i("GenService", "onStartCommand: variants=$variants style=$styleKey size=$sizeKey")
 
         val app = applicationContext as NaiApplication
         val req = GenRequest(
@@ -141,7 +149,7 @@ class GenerationService : Service() {
                                 GenerationBus.publishResults(p.results)
                                 islandNotifier.notifyDone(
                                     if (okCount == variants) "生成完成" else "部分完成",
-                                    "$okCount/$variants 张成功 · ${com.naigen.app.data.styles.StyleRegistry.get(req.styleKey)?.name ?: req.styleKey}"
+                                    "$okCount/$variants 张成功 · ${StyleRegistry.get(req.styleKey)?.name ?: req.styleKey}"
                                 )
                                 stopSelf()
                             }
@@ -150,8 +158,8 @@ class GenerationService : Service() {
                     }
                 }
             } catch (e: Exception) {
-                com.naigen.app.util.AppLog.e("GenService", "异常: ${e.message}", e)
-                if (e is kotlinx.coroutines.CancellationException) {
+                AppLog.e("GenService", "异常: ${e.message}", e)
+                if (e is CancellationException) {
                     GenerationBus.markFinished()
                     islandNotifier.cancelAll()
                     stopSelf()
@@ -176,14 +184,14 @@ class GenerationService : Service() {
     /**
      * 单张生成完成后的处理。
      */
-    private suspend fun finishWith(req: GenRequest, result: com.naigen.app.data.model.GenResult) {
-        com.naigen.app.util.AppLog.i("GenService", "finishWith: success=${result.success} time=${result.generationTimeMs}ms")
+    private suspend fun finishWith(req: GenRequest, result: GenResult) {
+        AppLog.i("GenService", "finishWith: success=${result.success} time=${result.generationTimeMs}ms")
         persistResult(req, result)
         GenerationBus.publishResults(listOf(result))
         if (result.success) {
             islandNotifier.notifyDone(
                 "生成完成",
-                "${result.styleName} · ${com.naigen.app.util.DateUtils.duration(result.generationTimeMs)}"
+                "${result.styleName} · ${DateUtils.duration(result.generationTimeMs)}"
             )
         } else {
             islandNotifier.notifyDone("生成失败", result.errorMessage ?: "未知错误")
@@ -194,17 +202,17 @@ class GenerationService : Service() {
     /**
      * 把单张结果落盘 + 写历史表。
      */
-    private suspend fun persistResult(req: GenRequest, result: com.naigen.app.data.model.GenResult) {
+    private suspend fun persistResult(req: GenRequest, result: GenResult) {
         val app = applicationContext as NaiApplication
         if (!result.success) {
             app.historyRepository.insert(
-                com.naigen.app.data.db.entities.HistoryEntity(
+                HistoryEntity(
                     prompt = req.prompt,
                     negativePrompt = req.negativePrompt,
                     styleKey = result.styleKey,
                     styleName = result.styleName,
                     sizeKey = result.sizeKey,
-                    sizeCost = com.naigen.app.data.styles.SizeOptions.costOf(result.sizeKey),
+                    sizeCost = SizeOptions.costOf(result.sizeKey),
                     imageUrl = "",
                     imagePath = "",
                     thumbBytes = ByteArray(0),
@@ -219,13 +227,13 @@ class GenerationService : Service() {
         val relative = ImageSaver.savePrivate(this, img.bytes)
         val thumb = ImageSaver.makeThumbnail(img.bytes)
         app.historyRepository.insert(
-            com.naigen.app.data.db.entities.HistoryEntity(
+            HistoryEntity(
                 prompt = req.prompt,
                 negativePrompt = req.negativePrompt,
                 styleKey = result.styleKey,
                 styleName = result.styleName,
                 sizeKey = result.sizeKey,
-                sizeCost = com.naigen.app.data.styles.SizeOptions.costOf(result.sizeKey),
+                sizeCost = SizeOptions.costOf(result.sizeKey),
                 imageUrl = img.url,
                 imagePath = relative,
                 thumbBytes = thumb,

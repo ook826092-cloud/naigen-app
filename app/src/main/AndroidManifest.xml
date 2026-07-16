@@ -14,14 +14,14 @@
     <!-- Android 13+ 通知权限（运行时申请） -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
-    <!-- Save to gallery: Android 13+ uses READ_MEDIA_IMAGES; pre-13 uses READ/WRITE_EXTERNAL_STORAGE -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!-- Save to gallery:
+         - Android 10+ 通过 MediaStore.insert 写入，无需任何存储权限
+         - Android 9 及以下写 Pictures/NaiGen/ 仍需 WRITE_EXTERNAL_STORAGE
+         - READ_MEDIA_IMAGES / READ_EXTERNAL_STORAGE 历史声明已移除：
+           App 不读取相册已存在文件（无 contentResolver.query 调用点），保留只会增加用户授权焦虑 -->
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
-    <uses-permission
-        android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
 
     <application
         android:name=".NaiApplication"
@@ -73,7 +73,10 @@
                 android:resource="@xml/file_provider_paths" />
         </provider>
 
-        <!-- Shizuku provider (用于通过 Shizuku 启动隐藏的厂商设置 Activity) -->
+        <!-- Shizuku provider (用于通过 Shizuku 启动隐藏的厂商设置 Activity)
+             exported=true + INTERACT_ACROSS_USERS_FULL 是 Shizuku 官方要求：
+             Shizuku 服务运行在另一个 user space，必须跨 user 调用。
+             不要改成更窄的权限，否则 Shizuku 授权与 IPC 会失效。 -->
         <provider
             android:name="rikka.shizuku.ShizukuProvider"
             android:authorities="${applicationId}.shizuku"

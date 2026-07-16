@@ -29,6 +29,15 @@ object ImageSaver {
     private const val PRIVATE_DIR = "images"
     private const val GALLERY_DIR = "NaiGen"
 
+    /**
+     * 命名锁。[nextDatedName] 内「扫描目录取最大编号 +1」不是原子操作，
+     * 并发生成 N 张变体时（走 NaiRepository.generateVariants 的 async{}.awaitAll()）
+     * 多个协程可能同时读到相同 maxNo 导致文件互相覆盖。
+     *
+     * [ImageSaver] 是进程内单例 object，[synchronized] 已足够保证进程内互斥。
+     */
+    private val namingLock = Any()
+
     /** App 私有目录 */
     private fun privateDir(context: Context): File =
         File(context.filesDir, PRIVATE_DIR).apply { if (!exists()) mkdirs() }
@@ -37,10 +46,12 @@ object ImageSaver {
      * 保存原图到 App 私有目录。返回相对路径（用于 HistoryEntity.imagePath）。
      *
      * 文件命名：YYYYMMDD_NNN.png，对齐教程 §5.12 的命名规则。
+     *
+     * 线程安全：内部用 [namingLock] 保证序号分配的原子性。
      */
     fun savePrivate(context: Context, bytes: ByteArray): String {
         val dir = privateDir(context)
-        val name = nextDatedName(dir, "png")
+        val name = synchronized(namingLock) { nextDatedName(dir, "png") }
         File(dir, name).writeBytes(bytes)
         return "$PRIVATE_DIR/$name"
     }

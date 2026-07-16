@@ -23,7 +23,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlin.coroutines.coroutineContext
-import kotlin.math.min
 
 /**
  * 生成进度事件。ViewModel 据此驱动 UI。
@@ -139,17 +138,17 @@ class NaiRepository(
 
             // ── 4) 轮询（指数退避 + 网络异常重试） ──
             var elapsed = 0
+            var pollCount = 0
             var consecutiveNetworkErrors = 0
             while (elapsed < MAX_POLL_TIME_SEC) {
                 coroutineContext.ensureActive()
 
-                // 指数退避：
-                //   - 前 3 次：1s（快速感知任务开始）
-                //   - 第 4 次起：min(2^(n-1), MAX_POLL_INTERVAL_SEC) 秒（减少请求量）
-                val intervalSec = if (elapsed < 3) 1
-                    else min(pollIntervalSec(elapsed), MAX_POLL_INTERVAL_SEC).toInt()
+                // 退避序列：前 3 次快速（1s）感知任务开始，第 4 次起逐步放大到 5s 上限
+                // 用查表代替 2^(n-1) 公式，语义清晰且可被单测精确覆盖
+                val intervalSec = pollIntervalSec(pollCount)
                 delay(intervalSec * 1000L)
                 elapsed += intervalSec
+                pollCount++
                 onProgress(GenProgress.Polling(variantIndex, totalVariants, jobId, elapsed))
 
                 val status = client.pollJob(baseUrl, jobId, token)
@@ -239,20 +238,18 @@ class NaiRepository(
     }
 
     /**
-     * 指数退避计算：返回应该 delay 的秒数（未应用 [MAX_POLL_INTERVAL_SEC] 上限）。
+     * 轮询退避序列（秒）。下标 = 已轮询次数。internal 便于单测直接验证表内容。
      *
-     * 公式：2^(n-1)，n 是已轮询次数。
-     *   n=4 → 8s, n=5 → 16s, n=6 → 32s
-     * 实际应用 [MAX_POLL_INTERVAL_SEC]=5 上限后会变成 5s。
+     * 设计：
+     *   - 0~2：1s（前 3 次快速感知任务开始）
+     *   - 3：2s, 4：3s
+     *   - 5 及以后：[MAX_POLL_INTERVAL_SEC] = 5s 上限
+     *
+     * 用查表代替旧的 `2^(n-1)` 公式，避免「公式算出 8s/16s 但被上限截断到 5s」
+     * 的语义不一致问题，也便于单测精确覆盖。
      */
-    private fun pollIntervalSec(elapsedSec: Int): Long {
-        // elapsedSec 即视为已轮询次数近似值，n ≈ elapsedSec/2 + 1
-        val n = (elapsedSec / 2).coerceAtLeast(1)
-        // 2^(n-1)，用 Long 防溢出
-        var result = 1L
-        repeat(n - 1) { result *= 2 }
-        return result
-    }
+    internal fun pollIntervalSec(pollCount: Int): Int =
+        companionPollIntervalSec(pollCount)
 
     /**
      * 并发变体生成。对齐教程 §5.7.4 的 --variants N。
@@ -307,14 +304,31 @@ class NaiRepository(
         /** 单次轮询间隔上限：5 秒 */
         const val MAX_POLL_INTERVAL_SEC = 5L
 
+        /**
+         * 轮询退避序列（秒）。下标 = 已轮询次数。internal 便于单测直接验证。
+         *
+         * 设计：
+         *   - 0~2：1s（前 3 次快速感知任务开始）
+         *   - 3：2s, 4：3s
+         *   - 5 及以后：[MAX_POLL_INTERVAL_SEC] = 5s 上限
+         *
+         * 用查表代替旧的 `2^(n-1)` 公式，避免「公式算出 8s/16s 但被上限截断到 5s」
+         * 的语义不一致问题，也便于单测精确覆盖。
+         */
+        internal val BACKOFF_SECONDS = intArrayOf(1, 1, 1, 2, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5)
+
+        /**
+         * 退避序列查表。internal 便于单测直接调用，无需实例化 [NaiRepository]
+         * （避免引入 SettingsStore / Context 依赖）。
+         */
+        internal fun companionPollIntervalSec(pollCount: Int): Int =
+            if (pollCount < BACKOFF_SECONDS.size) BACKOFF_SECONDS[pollCount]
+            else MAX_POLL_INTERVAL_SEC.toInt()
+
         /** 连续网络异常重试上限：超过则判任务失败 */
         const val MAX_NETWORK_RETRIES = 5
 
         // 并发生成上限：文案声明「1-6 张」，UI / ViewModel / Service 统一引用此常量
         const val MAX_VARIANTS = 6
-
-        /** 兼容旧引用（已废弃，请改用 [MAX_POLL_TIME_SEC]） */
-        @Deprecated("Use MAX_POLL_TIME_SEC instead", ReplaceWith("MAX_POLL_TIME_SEC"))
-        const val POLL_INTERVAL_MS = 2000L
     }
 }

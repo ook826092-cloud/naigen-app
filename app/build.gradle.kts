@@ -6,6 +6,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.devtools.ksp")
+    id("org.jetbrains.kotlinx.kover")
 }
 
 // ── 从 version.properties 读取版本号（单一来源）───────────────────────────
@@ -183,6 +184,12 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+    }
+
+    // Room schema 导出：编译期把 DB schema 写成 JSON 到 app/schemas/
+    // 配合 AppDatabase 的 exportSchema=true，为后续写 Migration 提供对照
+    ksp {
+        arg("room.schemaLocation", "$projectDir/schemas")
     }
 }
 

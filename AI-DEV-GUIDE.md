@@ -96,10 +96,13 @@ naigen-app/
 │       │   │       ├── album/       # 相册页（历史图片网格）
 │       │   │       └── settings/
 │       │   │           ├── SettingsScreen.kt     # 设置主页（栏目列表）
+│       │   │           ├── SettingsViewModel.kt  # 设置页 ViewModel
 │       │   │           ├── api/                  # API 服务商配置
 │       │   │           ├── styles/               # 风格管理 + 自定义风格 CRUD
 │       │   │           ├── keepalive/            # 后台保活 + Shizuku
 │       │   │           ├── language/             # 多语言切换
+│       │   │           ├── theme/                # 深色/浅色模式切换
+│       │   │           ├── logs/                 # 应用日志 + 网络日志查看
 │       │   │           ├── about/                # 关于页
 │       │   │           └── docs/                 # 说明文档跳转
 │       │   ├── widget/              # QuickGenWidgetReceiver
@@ -599,6 +602,8 @@ chore: 杂项
 
 ### 14.1 日志系统 v5
 
+> 实现：`ui/screen/settings/logs/LogsScreen.kt`
+
 **两 Tab 结构**：
 - **应用日志**：文件列表模式（不是实时滚动条目）
   - 顶部「当前日志」条目：显示实时内存缓冲内容
@@ -633,6 +638,8 @@ AppLog.formatAppEntry(entry)   // 格式化单条应用日志
 - LogsScreen 用 `LogDetailPage`（完整页面）显示内容，不用 `AlertDialog`
 
 ### 14.2 深色/浅色模式
+
+> 实现：`ui/screen/settings/theme/ThemeScreen.kt`
 
 - 设置 → 关于 → 深色模式
 - 三选一：跟随系统 / 浅色 / 深色

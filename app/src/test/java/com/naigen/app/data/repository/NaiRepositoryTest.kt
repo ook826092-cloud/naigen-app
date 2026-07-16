@@ -11,6 +11,7 @@ import org.junit.Test
  * 重点验证：
  *   1. 常量值符合预期（MAX_POLL_TIME_SEC / MAX_NETWORK_RETRIES 等）
  *   2. [JobStatusResponse] 状态常量正确分类（done / failed / network_error）
+ *   3. [NaiRepository.companionPollIntervalSec] 退避序列符合设计
  *
  * 完整的 generate() 流程测试需要 SettingsStore（依赖 Context），
  * 已在 [com.naigen.app.data.api.NaiApiClientTest] 中通过 MockWebServer 覆盖核心 HTTP 行为。
@@ -44,6 +45,60 @@ class NaiRepositoryTest {
     fun constants_maxPollIntervalSec_is5() {
         assertEquals(5L, NaiRepository.MAX_POLL_INTERVAL_SEC)
     }
+
+    // ── companionPollIntervalSec 退避序列 ────────────────────────────────────
+
+    @Test
+    fun pollInterval_firstThreePolls_are1Second() {
+        // 前 3 次快速轮询，便于尽快感知任务开始
+        assertEquals(1, NaiRepository.companionPollIntervalSec(0))
+        assertEquals(1, NaiRepository.companionPollIntervalSec(1))
+        assertEquals(1, NaiRepository.companionPollIntervalSec(2))
+    }
+
+    @Test
+    fun pollInterval_middlePolls_graduallyBackoff() {
+        assertEquals(2, NaiRepository.companionPollIntervalSec(3))
+        assertEquals(3, NaiRepository.companionPollIntervalSec(4))
+    }
+
+    @Test
+    fun pollInterval_afterFifthPoll_cappedAt5Seconds() {
+        // 第 5 次起达到 5s 上限
+        assertEquals(5, NaiRepository.companionPollIntervalSec(5))
+        assertEquals(5, NaiRepository.companionPollIntervalSec(6))
+        assertEquals(5, NaiRepository.companionPollIntervalSec(10))
+    }
+
+    @Test
+    fun pollInterval_beyondTableSize_cappedAt5Seconds() {
+        // 超出表长度也应回到 MAX_POLL_INTERVAL_SEC
+        assertEquals(5, NaiRepository.companionPollIntervalSec(1000))
+    }
+
+    @Test
+    fun pollInterval_backoffTable_neverExceeds5() {
+        // 全表扫描，所有值都应 ≤ MAX_POLL_INTERVAL_SEC
+        NaiRepository.BACKOFF_SECONDS.forEach { sec ->
+            assertTrue("退避值 $sec 不应超过上限 ${NaiRepository.MAX_POLL_INTERVAL_SEC}",
+                sec <= NaiRepository.MAX_POLL_INTERVAL_SEC)
+        }
+    }
+
+    @Test
+    fun pollInterval_backoffTable_startsAt1AndMonotonicNonDecreasing() {
+        // 退避序列应单调非递减，避免出现「先慢后快」的反直觉行为
+        val table = NaiRepository.BACKOFF_SECONDS
+        assertEquals(1, table.first())
+        for (i in 1 until table.size) {
+            assertTrue(
+                "下标 $i 的值 ${table[i]} 不应小于前一个 ${table[i - 1]}",
+                table[i] >= table[i - 1]
+            )
+        }
+    }
+
+    // ── JobStatusResponse 常量 ───────────────────────────────────────────────
 
     @Test
     fun jobStatusResponse_doneConstant_isDone() {
