@@ -224,8 +224,8 @@ class GenerationService : Service() {
             return
         }
         val img = result.images.firstOrNull() ?: return
-        val relative = ImageSaver.savePrivate(this, img.bytes)
-        val thumb = ImageSaver.makeThumbnail(img.bytes)
+        val relative = ImageSaver.savePrivate(this, img.bytes.value)
+        val thumb = ImageSaver.makeThumbnail(img.bytes.value)
         app.historyRepository.insert(
             HistoryEntity(
                 prompt = req.prompt,

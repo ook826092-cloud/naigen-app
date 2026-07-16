@@ -6,6 +6,7 @@ import com.naigen.app.data.api.dto.JobStatusResponse
 import com.naigen.app.data.model.GenImage
 import com.naigen.app.data.model.GenRequest
 import com.naigen.app.data.model.GenResult
+import com.naigen.app.data.model.ImmutableBytes
 import com.naigen.app.data.model.StyleParams
 import com.naigen.app.data.prefs.SettingsStore
 import com.naigen.app.data.styles.SizeOptions
@@ -180,7 +181,7 @@ class NaiRepository(
                         AppLog.i("NaiRepo", "success: style=$styleName size=${bytes.size}B time=${genTime}ms")
                         return@coroutineScope GenResult(
                             success = true,
-                            images = listOf(GenImage(bytes, fullUrl)),
+                            images = listOf(GenImage(ImmutableBytes(bytes), fullUrl)),
                             styleKey = styleKey, styleName = styleName,
                             sizeKey = request.sizeKey,
                             generationTimeMs = genTime, jobId = jobId

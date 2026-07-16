@@ -592,7 +592,7 @@ private fun ResultCard(
         if (r.success && r.images.isNotEmpty()) {
             val img = r.images.first()
             AsyncImage(
-                model = img.bytes,
+                model = img.bytes.value,
                 contentDescription = null,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -608,9 +608,9 @@ private fun ResultCard(
             )
             Spacer(Modifier.height(8.dp))
             Row {
-                IconAction("相册", Icons.Outlined.Download) { onSaveToGallery(img.bytes) }
+                IconAction("相册", Icons.Outlined.Download) { onSaveToGallery(img.bytes.value) }
                 Spacer(Modifier.width(12.dp))
-                IconAction("分享", Icons.Outlined.Share) { onShare(img.bytes) }
+                IconAction("分享", Icons.Outlined.Share) { onShare(img.bytes.value) }
             }
         } else {
             Text(

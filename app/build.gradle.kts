@@ -147,9 +147,16 @@ android {
                 ?: signingConfigs.getByName("debug")
         }
         debug {
-            isMinifyEnabled = false
+            // 默认关闭混淆，保持调试体验；需要测混淆时用 -PdebugMinify 启用：
+            //   ./gradlew assembleDebug -PdebugMinify
+            // 用于验证 proguard 规则在 release 前是否正确
+            isMinifyEnabled = project.hasProperty("debugMinify")
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 
@@ -195,15 +202,15 @@ android {
 
 dependencies {
     // Core AndroidX
-    implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.4")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
-    implementation("androidx.activity:activity-compose:1.9.1")
+    implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.appcompat:appcompat:1.7.0")
 
     // Compose BOM
-    val composeBom = platform("androidx.compose:compose-bom:2024.08.00")
+    val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
     implementation(composeBom)
     androidTestImplementation(composeBom)
 
@@ -213,21 +220,23 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.foundation:foundation")
-    implementation("androidx.navigation:navigation-compose:2.7.7")
+    implementation("androidx.navigation:navigation-compose:2.8.5")
 
     // Networking
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
     // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
     // Image loading
+    // 注意：coil 3.x 是大版本升级，API 有变化（包名 io.coil-kt → io.coil-kt.coil3），
+    // 本轮保守保持 2.7.0，后续单独迭代评估 3.x 迁移
     implementation("io.coil-kt:coil-compose:2.7.0")
 
     // Room
-    val roomVersion = "2.6.1"
+    val roomVersion = "2.7.0"
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")
@@ -249,7 +258,14 @@ dependencies {
 
     // Unit tests (纯 JVM，无需 instrumented)
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
     // MockWebServer：用于 NaiApiClient / NaiRepository 的 HTTP 单测
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+
+    // Instrumented tests (需真机/模拟器，CI 用 android-emulator-runner 跑)
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:core-ktx:1.6.1")
+    androidTestImplementation("androidx.room:room-testing:$roomVersion")
+    androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
 }

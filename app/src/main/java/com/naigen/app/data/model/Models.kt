@@ -100,42 +100,54 @@ data class GenRequest(
 )
 
 /**
+ * 不可变的字节包装。
+ *
+ * [ByteArray] 本身可变，直接放进 data class 会让 Compose 无法标 [Immutable]。
+ * 这里用一层 value class 包装，约定构造后不再修改 [value]，
+ * 从而让 [GenImage] / [GenResult] 可以安全标注 [Immutable]，
+ * 让 Compose 跳过不必要的重组。
+ *
+ * equals / hashCode 按字节内容比较（对齐旧 [GenImage] 的行为）。
+ */
+@Immutable
+@JvmInline
+value class ImmutableBytes(val value: ByteArray) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is ImmutableBytes) return false
+        return value.contentEquals(other.value)
+    }
+
+    override fun hashCode(): Int = value.contentHashCode()
+}
+
+/**
  * 单张图片的生成结果。
  *
- * 注意：[bytes] 是 [ByteArray]，Kotlin 默认引用相等，但这里我们想要内容相等
- * （便于 [GenImage] 在 Set / Map 中按内容比较）。
- *
- * 标注 [Stable]（而非 [Immutable]）：因为 [ByteArray] 内容可变，
- * 不满足 Compose 严格 Immutable 的要求；但作为已生成的图片数据，
- * 实际使用中不会被修改，[Stable] 足以让 Compose 正确处理重组。
+ * [bytes] 用 [ImmutableBytes] 包装，标注 [Immutable]：
+ * 作为已生成的图片数据，构造后不会被修改，Compose 可以安全跳过重组。
  */
-@Stable
+@Immutable
 data class GenImage(
-    val bytes: ByteArray,
+    val bytes: ImmutableBytes,
     val url: String              // 完整 URL，用于分享与内部跟踪
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is GenImage) return false
-        return bytes.contentEquals(other.bytes) && url == other.url
+        return bytes == other.bytes && url == other.url
     }
 
-    override fun hashCode(): Int {
-        var result = bytes.contentHashCode()
-        result = 31 * result + url.hashCode()
-        return result
-    }
+    override fun hashCode(): Int = 31 * bytes.hashCode() + url.hashCode()
 }
 
 /**
  * 一次完整请求的结果（含元信息）。
  *
- * 标注 [Stable]（而非 [Immutable]）：
- *   - [images] 是 [List]<[GenImage]>，而 [GenImage.bytes] 是可变的 [ByteArray]
- *   - 严格 [Immutable] 会误导 Compose 跳过重组，可能导致 bytes 更新不刷新
- *   - [Stable] 让 Compose 仍按引用比较，但允许内部 list 的「逻辑相等」更新
+ * 标注 [Immutable]：所有字段均为不可变类型（[ImmutableBytes] / String / 基础类型），
+ * [images] 列表构造后不再修改，Compose 可以安全跳过重组。
  */
-@Stable
+@Immutable
 data class GenResult(
     val success: Boolean,
     val images: List<GenImage> = emptyList(),
