@@ -10,7 +10,6 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.core.app.NotificationCompat
-import androidx.core.content.LocusId
 import com.naigen.app.MainActivity
 import com.naigen.app.NaiApplication
 import com.naigen.app.R
@@ -27,7 +26,6 @@ import org.json.JSONObject
  *
  * 关键修复（v2）：
  *   - extras 在 builder 阶段用 addExtras 设置，不再在 build() 后修改（避免某些设备 extras 不可变导致崩溃）
- *   - LocusId 用正式 API setLocusId，不再手动塞 extras
  *   - buildStandardProgressNotification 也加 runCatching 保护
  *   - 整个 buildProgressNotification 加外层 runCatching 兜底
  *   - 加强诊断日志：记录 vendor、miuiFocusProtocol、走了哪个路径
@@ -220,11 +218,6 @@ class IslandNotifier(private val context: Context) {
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .addExtras(extras)
 
-        // Android 12+ 用正式 API 设置 LocusId
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            builder.setLocusId(LocusId(LOCUS_ID_GENERATION))
-        }
-
         return builder.build()
     }
 
@@ -263,10 +256,6 @@ class IslandNotifier(private val context: Context) {
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .addExtras(extras)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            builder.setLocusId(LocusId(LOCUS_ID_GENERATION))
-        }
 
         return builder.build()
     }
@@ -335,10 +324,6 @@ class IslandNotifier(private val context: Context) {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            builder.setLocusId(LocusId(LOCUS_ID_GENERATION))
-        }
-
         return builder.build()
     }
 
@@ -387,7 +372,6 @@ class IslandNotifier(private val context: Context) {
 
     private companion object {
         const val API_LEVEL_ANDROID_16 = 36
-        const val LOCUS_ID_GENERATION = "naigen_generation"
         const val BUSINESS_NAIGEN_GENERATION = "naigen_generation"
     }
 }
