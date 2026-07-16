@@ -57,11 +57,20 @@ class GenerationService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // 诊断日志：记录通知权限状态
+        val notifGranted = com.naigen.app.MainActivity.isNotificationPermissionGranted(this)
+        com.naigen.app.util.AppLog.i("GenService", "onStartCommand: notifGranted=$notifGranted intent=${intent != null}")
+
         // 立即启动前台通知（Android 16 要求 6 秒内）
-        startForegroundCompat(
-            NOTIF_ID,
-            islandNotifier.buildProgressNotification("准备生成…", 0, expectedTotalSec)
-        )
+        try {
+            startForegroundCompat(
+                NOTIF_ID,
+                islandNotifier.buildProgressNotification("准备生成…", 0, expectedTotalSec)
+            )
+        } catch (e: Exception) {
+            com.naigen.app.util.AppLog.e("GenService", "startForeground 失败！notifGranted=$notifGranted", e)
+            // 即使 startForeground 失败也继续，避免 Service 崩溃
+        }
 
         if (intent == null) {
             // Service 被系统重启，没有任务可跑，立即停掉

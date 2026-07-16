@@ -21,12 +21,19 @@ import androidx.compose.ui.Modifier
 import com.naigen.app.ui.navigation.AppNavGraph
 import com.naigen.app.ui.theme.NaiTheme
 import com.naigen.app.ui.theme.ThemeMode
+import com.naigen.app.util.AppLog
 
 class MainActivity : AppCompatActivity() {
 
     private val notifPermLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { }
+    ) { granted ->
+        if (granted) {
+            AppLog.i("MainActivity", "POST_NOTIFICATIONS 已授权")
+        } else {
+            AppLog.w("MainActivity", "POST_NOTIFICATIONS 被拒绝！通知将不显示，用户需到设置手动开启")
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,7 +70,20 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
         val granted = checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         if (!granted) {
+            AppLog.i("MainActivity", "POST_NOTIFICATIONS 未授权，弹出请求对话框")
             notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            AppLog.i("MainActivity", "POST_NOTIFICATIONS 已授权")
+        }
+    }
+
+    companion object {
+        /**
+         * 检查通知权限是否已授予（供其他组件在生成前调用）。
+         */
+        fun isNotificationPermissionGranted(context: android.content.Context): Boolean {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
+            return context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         }
     }
 }
